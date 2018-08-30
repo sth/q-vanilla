@@ -498,7 +498,7 @@ function Q(value) {
     // If the object is already a Promise, return it directly.  This enables
     // the resolve function to both be used to created references from objects,
     // but to tolerably coerce non-promises to promises.
-    if (value instanceof Promise) {
+    if (value instanceof QPromise) {
         return value;
     }
 
@@ -556,7 +556,7 @@ function defer() {
     var messages = [], progressListeners = [], resolvedPromise;
 
     var deferred = object_create(defer.prototype);
-    var promise = object_create(Promise.prototype);
+    var promise = object_create(QPromise.prototype);
 
     promise.promiseDispatch = function (resolve, op, operands) {
         var args = array_slice(arguments);
@@ -720,7 +720,7 @@ Q.passByCopy = function (object) {
     return object;
 };
 
-Promise.prototype.passByCopy = function () {
+QPromise.prototype.passByCopy = function () {
     //freeze(object);
     //passByCopies.set(object, true);
     return this;
@@ -739,7 +739,7 @@ Q.join = function (x, y) {
     return Q(x).join(y);
 };
 
-Promise.prototype.join = function (that) {
+QPromise.prototype.join = function (that) {
     return Q([this, that]).spread(function (x, y) {
         if (x === y) {
             // TODO: "===" should be Object.is or equiv
@@ -769,7 +769,7 @@ function race(answerPs) {
     });
 }
 
-Promise.prototype.race = function () {
+QPromise.prototype.race = function () {
     return this.then(Q.race);
 };
 
@@ -784,12 +784,12 @@ Promise.prototype.race = function () {
  * of the returned object, apart from that it is usable whereever promises are
  * bought and sold.
  */
-Q.makePromise = Promise;
-function Promise(descriptor, fallback, inspect) {
+Q.makePromise = QPromise;
+function QPromise(descriptor, fallback, inspect) {
     if (fallback === void 0) {
         fallback = function (op) {
             return reject(new Error(
-                "Promise does not support operation: " + op
+                "QPromise does not support operation: " + op
             ));
         };
     }
@@ -799,7 +799,7 @@ function Promise(descriptor, fallback, inspect) {
         };
     }
 
-    var promise = object_create(Promise.prototype);
+    var promise = object_create(QPromise.prototype);
 
     promise.promiseDispatch = function (resolve, op, args) {
         var result;
@@ -839,11 +839,11 @@ function Promise(descriptor, fallback, inspect) {
     return promise;
 }
 
-Promise.prototype.toString = function () {
-    return "[object Promise]";
+QPromise.prototype.toString = function () {
+    return "[object QPromise]";
 };
 
-Promise.prototype.then = function (fulfilled, rejected, progressed) {
+QPromise.prototype.then = function (fulfilled, rejected, progressed) {
     var self = this;
     var deferred = defer();
     var done = false;   // ensure the untrusted promise makes at most a
@@ -930,7 +930,7 @@ Q.tap = function (promise, callback) {
  *   .tap(console.log)
  *   .then(...);
  */
-Promise.prototype.tap = function (callback) {
+QPromise.prototype.tap = function (callback) {
     callback = Q(callback);
 
     return this.then(function (value) {
@@ -959,7 +959,7 @@ function when(value, fulfilled, rejected, progressed) {
     return Q(value).then(fulfilled, rejected, progressed);
 }
 
-Promise.prototype.thenResolve = function (value) {
+QPromise.prototype.thenResolve = function (value) {
     return this.then(function () { return value; });
 };
 
@@ -967,7 +967,7 @@ Q.thenResolve = function (promise, value) {
     return Q(promise).thenResolve(value);
 };
 
-Promise.prototype.thenReject = function (reason) {
+QPromise.prototype.thenReject = function (reason) {
     return this.then(function () { throw reason; });
 };
 
@@ -1003,7 +1003,7 @@ function nearer(value) {
  */
 Q.isPromise = isPromise;
 function isPromise(object) {
-    return object instanceof Promise;
+    return object instanceof QPromise;
 }
 
 Q.isPromiseAlike = isPromiseAlike;
@@ -1020,7 +1020,7 @@ function isPending(object) {
     return isPromise(object) && object.inspect().state === "pending";
 }
 
-Promise.prototype.isPending = function () {
+QPromise.prototype.isPending = function () {
     return this.inspect().state === "pending";
 };
 
@@ -1033,7 +1033,7 @@ function isFulfilled(object) {
     return !isPromise(object) || object.inspect().state === "fulfilled";
 }
 
-Promise.prototype.isFulfilled = function () {
+QPromise.prototype.isFulfilled = function () {
     return this.inspect().state === "fulfilled";
 };
 
@@ -1045,7 +1045,7 @@ function isRejected(object) {
     return isPromise(object) && object.inspect().state === "rejected";
 }
 
-Promise.prototype.isRejected = function () {
+QPromise.prototype.isRejected = function () {
     return this.inspect().state === "rejected";
 };
 
@@ -1133,7 +1133,7 @@ resetUnhandledRejections();
  */
 Q.reject = reject;
 function reject(reason) {
-    var rejection = Promise({
+    var rejection = QPromise({
         "when": function (rejected) {
             // note that the error has been handled
             if (rejected) {
@@ -1159,7 +1159,7 @@ function reject(reason) {
  */
 Q.fulfill = fulfill;
 function fulfill(value) {
-    return Promise({
+    return QPromise({
         "when": function () {
             return value;
         },
@@ -1220,7 +1220,7 @@ function coerce(promise) {
  */
 Q.master = master;
 function master(object) {
-    return Promise({
+    return QPromise({
         "isDef": function () {}
     }, function fallback(op, args) {
         return dispatch(object, op, args);
@@ -1244,7 +1244,7 @@ function spread(value, fulfilled, rejected) {
     return Q(value).spread(fulfilled, rejected);
 }
 
-Promise.prototype.spread = function (fulfilled, rejected) {
+QPromise.prototype.spread = function (fulfilled, rejected) {
     return this.all().then(function (array) {
         return fulfilled.apply(void 0, array);
     }, rejected);
@@ -1404,7 +1404,7 @@ function dispatch(object, op, args) {
     return Q(object).dispatch(op, args);
 }
 
-Promise.prototype.dispatch = function (op, args) {
+QPromise.prototype.dispatch = function (op, args) {
     var self = this;
     var deferred = defer();
     Q.nextTick(function () {
@@ -1423,7 +1423,7 @@ Q.get = function (object, key) {
     return Q(object).dispatch("get", [key]);
 };
 
-Promise.prototype.get = function (key) {
+QPromise.prototype.get = function (key) {
     return this.dispatch("get", [key]);
 };
 
@@ -1438,7 +1438,7 @@ Q.set = function (object, key, value) {
     return Q(object).dispatch("set", [key, value]);
 };
 
-Promise.prototype.set = function (key, value) {
+QPromise.prototype.set = function (key, value) {
     return this.dispatch("set", [key, value]);
 };
 
@@ -1453,8 +1453,8 @@ Q["delete"] = function (object, key) {
     return Q(object).dispatch("delete", [key]);
 };
 
-Promise.prototype.del = // XXX legacy
-Promise.prototype["delete"] = function (key) {
+QPromise.prototype.del = // XXX legacy
+QPromise.prototype["delete"] = function (key) {
     return this.dispatch("delete", [key]);
 };
 
@@ -1476,8 +1476,8 @@ Q.post = function (object, name, args) {
     return Q(object).dispatch("post", [name, args]);
 };
 
-Promise.prototype.mapply = // XXX As proposed by "Redsandro"
-Promise.prototype.post = function (name, args) {
+QPromise.prototype.mapply = // XXX As proposed by "Redsandro"
+QPromise.prototype.post = function (name, args) {
     return this.dispatch("post", [name, args]);
 };
 
@@ -1494,9 +1494,9 @@ Q.invoke = function (object, name /*...args*/) {
     return Q(object).dispatch("post", [name, array_slice(arguments, 2)]);
 };
 
-Promise.prototype.send = // XXX Mark Miller's proposed parlance
-Promise.prototype.mcall = // XXX As proposed by "Redsandro"
-Promise.prototype.invoke = function (name /*...args*/) {
+QPromise.prototype.send = // XXX Mark Miller's proposed parlance
+QPromise.prototype.mcall = // XXX As proposed by "Redsandro"
+QPromise.prototype.invoke = function (name /*...args*/) {
     return this.dispatch("post", [name, array_slice(arguments, 1)]);
 };
 
@@ -1509,7 +1509,7 @@ Q.fapply = function (object, args) {
     return Q(object).dispatch("apply", [void 0, args]);
 };
 
-Promise.prototype.fapply = function (args) {
+QPromise.prototype.fapply = function (args) {
     return this.dispatch("apply", [void 0, args]);
 };
 
@@ -1523,7 +1523,7 @@ Q.fcall = function (object /* ...args*/) {
     return Q(object).dispatch("apply", [void 0, array_slice(arguments, 1)]);
 };
 
-Promise.prototype.fcall = function (/*...args*/) {
+QPromise.prototype.fcall = function (/*...args*/) {
     return this.dispatch("apply", [void 0, array_slice(arguments)]);
 };
 
@@ -1543,7 +1543,7 @@ Q.fbind = function (object /*...args*/) {
         ]);
     };
 };
-Promise.prototype.fbind = function (/*...args*/) {
+QPromise.prototype.fbind = function (/*...args*/) {
     var promise = this;
     var args = array_slice(arguments);
     return function fbound() {
@@ -1564,7 +1564,7 @@ Q.keys = function (object) {
     return Q(object).dispatch("keys", []);
 };
 
-Promise.prototype.keys = function () {
+QPromise.prototype.keys = function () {
     return this.dispatch("keys", []);
 };
 
@@ -1613,7 +1613,7 @@ function all(promises) {
     });
 }
 
-Promise.prototype.all = function () {
+QPromise.prototype.all = function () {
     return all(this);
 };
 
@@ -1664,7 +1664,7 @@ function any(promises) {
     return deferred.promise;
 }
 
-Promise.prototype.any = function () {
+QPromise.prototype.any = function () {
     return any(this);
 };
 
@@ -1689,7 +1689,7 @@ function allResolved(promises) {
     });
 }
 
-Promise.prototype.allResolved = function () {
+QPromise.prototype.allResolved = function () {
     return allResolved(this);
 };
 
@@ -1708,7 +1708,7 @@ function allSettled(promises) {
  * promises for values)
  * @returns {Array[State]} an array of states for the respective values.
  */
-Promise.prototype.allSettled = function () {
+QPromise.prototype.allSettled = function () {
     return this.then(function (promises) {
         return all(array_map(promises, function (promise) {
             promise = Q(promise);
@@ -1734,8 +1734,8 @@ Q["catch"] = function (object, rejected) {
     return Q(object).then(void 0, rejected);
 };
 
-Promise.prototype.fail = // XXX legacy
-Promise.prototype["catch"] = function (rejected) {
+QPromise.prototype.fail = // XXX legacy
+QPromise.prototype["catch"] = function (rejected) {
     return this.then(void 0, rejected);
 };
 
@@ -1752,7 +1752,7 @@ function progress(object, progressed) {
     return Q(object).then(void 0, void 0, progressed);
 }
 
-Promise.prototype.progress = function (progressed) {
+QPromise.prototype.progress = function (progressed) {
     return this.then(void 0, void 0, progressed);
 };
 
@@ -1772,8 +1772,8 @@ Q["finally"] = function (object, callback) {
     return Q(object)["finally"](callback);
 };
 
-Promise.prototype.fin = // XXX legacy
-Promise.prototype["finally"] = function (callback) {
+QPromise.prototype.fin = // XXX legacy
+QPromise.prototype["finally"] = function (callback) {
     if (!callback || typeof callback.apply !== "function") {
         throw new Error("Q can't apply finally callback");
     }
@@ -1800,7 +1800,7 @@ Q.done = function (object, fulfilled, rejected, progress) {
     return Q(object).done(fulfilled, rejected, progress);
 };
 
-Promise.prototype.done = function (fulfilled, rejected, progress) {
+QPromise.prototype.done = function (fulfilled, rejected, progress) {
     var onUnhandledError = function (error) {
         // forward to a future turn so that ``when``
         // does not catch it and turn it into a rejection.
@@ -1839,7 +1839,7 @@ Q.timeout = function (object, ms, error) {
     return Q(object).timeout(ms, error);
 };
 
-Promise.prototype.timeout = function (ms, error) {
+QPromise.prototype.timeout = function (ms, error) {
     var deferred = defer();
     var timeoutId = setTimeout(function () {
         if (!error || "string" === typeof error) {
@@ -1877,7 +1877,7 @@ Q.delay = function (object, timeout) {
     return Q(object).delay(timeout);
 };
 
-Promise.prototype.delay = function (timeout) {
+QPromise.prototype.delay = function (timeout) {
     return this.then(function (value) {
         var deferred = defer();
         setTimeout(function () {
@@ -1900,7 +1900,7 @@ Q.nfapply = function (callback, args) {
     return Q(callback).nfapply(args);
 };
 
-Promise.prototype.nfapply = function (args) {
+QPromise.prototype.nfapply = function (args) {
     var deferred = defer();
     var nodeArgs = array_slice(args);
     nodeArgs.push(deferred.makeNodeResolver());
@@ -1922,7 +1922,7 @@ Q.nfcall = function (callback /*...args*/) {
     return Q(callback).nfapply(args);
 };
 
-Promise.prototype.nfcall = function (/*...args*/) {
+QPromise.prototype.nfcall = function (/*...args*/) {
     var nodeArgs = array_slice(arguments);
     var deferred = defer();
     nodeArgs.push(deferred.makeNodeResolver());
@@ -1953,8 +1953,8 @@ Q.denodeify = function (callback /*...args*/) {
     };
 };
 
-Promise.prototype.nfbind =
-Promise.prototype.denodeify = function (/*...args*/) {
+QPromise.prototype.nfbind =
+QPromise.prototype.denodeify = function (/*...args*/) {
     var args = array_slice(arguments);
     args.unshift(this);
     return Q.denodeify.apply(void 0, args);
@@ -1974,7 +1974,7 @@ Q.nbind = function (callback, thisp /*...args*/) {
     };
 };
 
-Promise.prototype.nbind = function (/*thisp, ...args*/) {
+QPromise.prototype.nbind = function (/*thisp, ...args*/) {
     var args = array_slice(arguments, 0);
     args.unshift(this);
     return Q.nbind.apply(void 0, args);
@@ -1994,8 +1994,8 @@ Q.npost = function (object, name, args) {
     return Q(object).npost(name, args);
 };
 
-Promise.prototype.nmapply = // XXX As proposed by "Redsandro"
-Promise.prototype.npost = function (name, args) {
+QPromise.prototype.nmapply = // XXX As proposed by "Redsandro"
+QPromise.prototype.npost = function (name, args) {
     var nodeArgs = array_slice(args || []);
     var deferred = defer();
     nodeArgs.push(deferred.makeNodeResolver());
@@ -2023,9 +2023,9 @@ Q.ninvoke = function (object, name /*...args*/) {
     return deferred.promise;
 };
 
-Promise.prototype.nsend = // XXX Based on Mark Miller's proposed "send"
-Promise.prototype.nmcall = // XXX Based on "Redsandro's" proposal
-Promise.prototype.ninvoke = function (name /*...args*/) {
+QPromise.prototype.nsend = // XXX Based on Mark Miller's proposed "send"
+QPromise.prototype.nmcall = // XXX Based on "Redsandro's" proposal
+QPromise.prototype.ninvoke = function (name /*...args*/) {
     var nodeArgs = array_slice(arguments, 1);
     var deferred = defer();
     nodeArgs.push(deferred.makeNodeResolver());
@@ -2048,7 +2048,7 @@ function nodeify(object, nodeback) {
     return Q(object).nodeify(nodeback);
 }
 
-Promise.prototype.nodeify = function (nodeback) {
+QPromise.prototype.nodeify = function (nodeback) {
     if (nodeback) {
         this.then(function (value) {
             Q.nextTick(function () {
