@@ -79,18 +79,6 @@
 })(function () {
 "use strict";
 
-var hasStacks = false;
-try {
-    throw new Error();
-} catch (e) {
-    hasStacks = !!e.stack;
-}
-
-// All code after this point will be filtered from stack traces reported
-// by Q.
-var qStartingLine = captureLine();
-var qFileName;
-
 // shims
 
 // used for fallback in "allResolved"
@@ -327,11 +315,6 @@ var object_create = Object.create || function (prototype) {
     return new Type();
 };
 
-var object_defineProperty = Object.defineProperty || function (obj, prop, descriptor) {
-    obj[prop] = descriptor.value;
-    return obj;
-};
-
 var object_hasOwnProperty = uncurryThis(Object.prototype.hasOwnProperty);
 
 var object_keys = Object.keys || function (object) {
@@ -369,110 +352,6 @@ if (typeof ReturnValue !== "undefined") {
     QReturnValue = function (value) {
         this.value = value;
     };
-}
-
-// long stack traces
-
-var STACK_JUMP_SEPARATOR = "From previous event:";
-
-function makeStackTraceLong(error, promise) {
-    // If possible, transform the error stack trace by removing Node and Q
-    // cruft, then concatenating with the stack trace of `promise`. See #57.
-    if (hasStacks &&
-        promise.stack &&
-        typeof error === "object" &&
-        error !== null &&
-        error.stack
-    ) {
-        var stacks = [];
-        for (var p = promise; !!p; p = p.source) {
-            if (p.stack && (!error.__minimumStackCounter__ || error.__minimumStackCounter__ > p.stackCounter)) {
-                object_defineProperty(error, "__minimumStackCounter__", {value: p.stackCounter, configurable: true});
-                stacks.unshift(p.stack);
-            }
-        }
-        stacks.unshift(error.stack);
-
-        var concatedStacks = stacks.join("\n" + STACK_JUMP_SEPARATOR + "\n");
-        var stack = filterStackString(concatedStacks);
-        object_defineProperty(error, "stack", {value: stack, configurable: true});
-    }
-}
-
-function filterStackString(stackString) {
-    var lines = stackString.split("\n");
-    var desiredLines = [];
-    for (var i = 0; i < lines.length; ++i) {
-        var line = lines[i];
-
-        if (!isInternalFrame(line) && !isNodeFrame(line) && line) {
-            desiredLines.push(line);
-        }
-    }
-    return desiredLines.join("\n");
-}
-
-function isNodeFrame(stackLine) {
-    return stackLine.indexOf("(module.js:") !== -1 ||
-           stackLine.indexOf("(node.js:") !== -1;
-}
-
-function getFileNameAndLineNumber(stackLine) {
-    // Named functions: "at functionName (filename:lineNumber:columnNumber)"
-    // In IE10 function name can have spaces ("Anonymous function") O_o
-    var attempt1 = /at .+ \((.+):(\d+):(?:\d+)\)$/.exec(stackLine);
-    if (attempt1) {
-        return [attempt1[1], Number(attempt1[2])];
-    }
-
-    // Anonymous functions: "at filename:lineNumber:columnNumber"
-    var attempt2 = /at ([^ ]+):(\d+):(?:\d+)$/.exec(stackLine);
-    if (attempt2) {
-        return [attempt2[1], Number(attempt2[2])];
-    }
-
-    // Firefox style: "function@filename:lineNumber or @filename:lineNumber"
-    var attempt3 = /.*@(.+):(\d+)$/.exec(stackLine);
-    if (attempt3) {
-        return [attempt3[1], Number(attempt3[2])];
-    }
-}
-
-function isInternalFrame(stackLine) {
-    var fileNameAndLineNumber = getFileNameAndLineNumber(stackLine);
-
-    if (!fileNameAndLineNumber) {
-        return false;
-    }
-
-    var fileName = fileNameAndLineNumber[0];
-    var lineNumber = fileNameAndLineNumber[1];
-
-    return fileName === qFileName &&
-        lineNumber >= qStartingLine &&
-        lineNumber <= qEndingLine;
-}
-
-// discover own file name and line number range for filtering stack
-// traces
-function captureLine() {
-    if (!hasStacks) {
-        return;
-    }
-
-    try {
-        throw new Error();
-    } catch (e) {
-        var lines = e.stack.split("\n");
-        var firstLine = lines[0].indexOf("@") > 0 ? lines[1] : lines[2];
-        var fileNameAndLineNumber = getFileNameAndLineNumber(firstLine);
-        if (!fileNameAndLineNumber) {
-            return;
-        }
-
-        qFileName = fileNameAndLineNumber[0];
-        return fileNameAndLineNumber[1];
-    }
 }
 
 function deprecate(callback, name, alternative) {
@@ -516,24 +395,6 @@ Q.resolve = Q;
  * @param {Function} task
  */
 Q.nextTick = nextTick;
-
-/**
- * Controls whether or not long stack traces will be on
- */
-Q.longStackSupport = false;
-
-/**
- * The counter is used to determine the stopping point for building
- * long stack traces. In makeStackTraceLong we walk backwards through
- * the linked list of promises, only stacks which were created before
- * the rejection are concatenated.
- */
-var longStackCounter = 1;
-
-// enable long stacks if Q_DEBUG is set
-if (typeof process === "object" && process && process.env && process.env.Q_DEBUG) {
-    Q.longStackSupport = true;
-}
 
 /**
  * Constructs a {promise, resolve, reject} object.
@@ -591,33 +452,12 @@ function defer() {
         return resolvedPromise.inspect();
     };
 
-    if (Q.longStackSupport && hasStacks) {
-        try {
-            throw new Error();
-        } catch (e) {
-            // NOTE: don't try to use `Error.captureStackTrace` or transfer the
-            // accessor around; that causes memory leaks as per GH-111. Just
-            // reify the stack trace as a string ASAP.
-            //
-            // At the same time, cut off the first line; it's always just
-            // "[object Promise]\n", as per the `toString`.
-            promise.stack = e.stack.substring(e.stack.indexOf("\n") + 1);
-            promise.stackCounter = longStackCounter++;
-        }
-    }
-
     // NOTE: we do the checks for `resolvedPromise` in each method, instead of
     // consolidating them into `become`, since otherwise we'd create new
     // promises with the lines `become(whatever(value))`. See e.g. GH-252.
 
     function become(newPromise) {
         resolvedPromise = newPromise;
-
-        if (Q.longStackSupport && hasStacks) {
-            // Only hold a reference to the new promise if long stacks
-            // are enabled to reduce memory usage
-            promise.source = newPromise;
-        }
 
         array_reduce(messages, function (undefined, message) {
             Q.nextTick(function () {
@@ -859,7 +699,6 @@ QPromise.prototype.then = function (fulfilled, rejected, progressed) {
 
     function _rejected(exception) {
         if (typeof rejected === "function") {
-            makeStackTraceLong(exception, self);
             try {
                 return rejected(exception);
             } catch (newException) {
@@ -1805,7 +1644,6 @@ QPromise.prototype.done = function (fulfilled, rejected, progress) {
         // forward to a future turn so that ``when``
         // does not catch it and turn it into a rejection.
         Q.nextTick(function () {
-            makeStackTraceLong(error, promise);
             if (Q.onerror) {
                 Q.onerror(error);
             } else {
@@ -2067,9 +1905,6 @@ QPromise.prototype.nodeify = function (nodeback) {
 Q.noConflict = function() {
     throw new Error("Q.noConflict only works when Q is used as a global");
 };
-
-// All code before this point will be filtered from stack traces.
-var qEndingLine = captureLine();
 
 return Q;
 
