@@ -83,6 +83,11 @@
 
 // used for fallback in "allResolved"
 var noop = function () {};
+function notImplemented(name) {
+	return function () {
+		throw new Error("Q: function" + (name ? " "+name : "") + "not implemented");
+	};
+}
 
 // Use the fastest possible means to execute a task in a future turn
 // of the event loop.
@@ -283,18 +288,6 @@ var array_reduce = uncurryThis(
             }
         }
         return basis;
-    }
-);
-
-var array_indexOf = uncurryThis(
-    Array.prototype.indexOf || function (value) {
-        // not a very good shim, but good enough for our one use of it
-        for (var i = 0; i < this.length; i++) {
-            if (this[i] === value) {
-                return i;
-            }
-        }
-        return -1;
     }
 );
 
@@ -888,83 +881,9 @@ QPromise.prototype.isRejected = function () {
     return this.inspect().state === "rejected";
 };
 
-//// BEGIN UNHANDLED REJECTION TRACKING
-
-// This promise library consumes exceptions thrown in handlers so they can be
-// handled by a subsequent promise.  The exceptions get added to this array when
-// they are created, and removed when they are handled.  Note that in ES6 or
-// shimmed environments, this would naturally be a `Set`.
-var unhandledReasons = [];
-var unhandledRejections = [];
-var reportedUnhandledRejections = [];
-var trackUnhandledRejections = true;
-
-function resetUnhandledRejections() {
-    unhandledReasons.length = 0;
-    unhandledRejections.length = 0;
-
-    if (!trackUnhandledRejections) {
-        trackUnhandledRejections = true;
-    }
-}
-
-function trackRejection(promise, reason) {
-    if (!trackUnhandledRejections) {
-        return;
-    }
-    if (typeof process === "object" && typeof process.emit === "function") {
-        Q.nextTick.runAfter(function () {
-            if (array_indexOf(unhandledRejections, promise) !== -1) {
-                process.emit("unhandledRejection", reason, promise);
-                reportedUnhandledRejections.push(promise);
-            }
-        });
-    }
-
-    unhandledRejections.push(promise);
-    if (reason && typeof reason.stack !== "undefined") {
-        unhandledReasons.push(reason.stack);
-    } else {
-        unhandledReasons.push("(no stack) " + reason);
-    }
-}
-
-function untrackRejection(promise) {
-    if (!trackUnhandledRejections) {
-        return;
-    }
-
-    var at = array_indexOf(unhandledRejections, promise);
-    if (at !== -1) {
-        if (typeof process === "object" && typeof process.emit === "function") {
-            Q.nextTick.runAfter(function () {
-                var atReport = array_indexOf(reportedUnhandledRejections, promise);
-                if (atReport !== -1) {
-                    process.emit("rejectionHandled", unhandledReasons[at], promise);
-                    reportedUnhandledRejections.splice(atReport, 1);
-                }
-            });
-        }
-        unhandledRejections.splice(at, 1);
-        unhandledReasons.splice(at, 1);
-    }
-}
-
-Q.resetUnhandledRejections = resetUnhandledRejections;
-
-Q.getUnhandledReasons = function () {
-    // Make a copy so that consumers can't interfere with our internal state.
-    return unhandledReasons.slice();
-};
-
-Q.stopUnhandledRejectionTracking = function () {
-    resetUnhandledRejections();
-    trackUnhandledRejections = false;
-};
-
-resetUnhandledRejections();
-
-//// END UNHANDLED REJECTION TRACKING
+Q.resetUnhandledRejections = notImplemented("resetUnhandledRejections");
+Q.getUnhandledReasons = notImplemented("getUnhandledReasons");
+Q.stopUnhandledRejectionTracking = notImplemented("stopUnhandledRejectionTracking");
 
 /**
  * Constructs a rejected promise.
@@ -975,9 +894,6 @@ function reject(reason) {
     var rejection = QPromise({
         "when": function (rejected) {
             // note that the error has been handled
-            if (rejected) {
-                untrackRejection(this);
-            }
             return rejected ? rejected(reason) : this;
         }
     }, function fallback() {
@@ -985,9 +901,6 @@ function reject(reason) {
     }, function inspect() {
         return { state: "rejected", reason: reason };
     });
-
-    // Note that the reason has not been handled.
-    trackRejection(rejection, reason);
 
     return rejection;
 }
