@@ -811,30 +811,6 @@ function fulfill(value) {
     return QPromise({
         "when": function () {
             return value;
-        },
-        "get": function (name) {
-            return value[name];
-        },
-        "set": function (name, rhs) {
-            value[name] = rhs;
-        },
-        "delete": function (name) {
-            delete value[name];
-        },
-        "post": function (name, args) {
-            // Mark Miller proposes that post with no name should apply a
-            // promised function.
-            if (name === null || name === void 0) {
-                return value.apply(void 0, args);
-            } else {
-                return value[name].apply(value, args);
-            }
-        },
-        "apply": function (thisp, args) {
-            return value.apply(thisp, args);
-        },
-        "keys": function () {
-            return object_keys(value);
         }
     }, void 0, function inspect() {
         return { state: "fulfilled", value: value };
@@ -1069,11 +1045,13 @@ QPromise.prototype.dispatch = function (op, args) {
  * @return promise for the property value
  */
 Q.get = function (object, key) {
-    return Q(object).dispatch("get", [key]);
+    return Q(object).get(key);
 };
 
 QPromise.prototype.get = function (key) {
-    return this.dispatch("get", [key]);
+    return this.then(function (value) {
+        return value[key];
+    });
 };
 
 /**
@@ -1084,11 +1062,13 @@ QPromise.prototype.get = function (key) {
  * @return promise for the return value
  */
 Q.set = function (object, key, value) {
-    return Q(object).dispatch("set", [key, value]);
+    return Q(object).set(key, value);
 };
 
-QPromise.prototype.set = function (key, value) {
-    return this.dispatch("set", [key, value]);
+QPromise.prototype.set = function (key, rhs) {
+    return this.then(function (value) {
+        value[key] = rhs;
+    });
 };
 
 /**
@@ -1099,12 +1079,14 @@ QPromise.prototype.set = function (key, value) {
  */
 Q.del = // XXX legacy
 Q["delete"] = function (object, key) {
-    return Q(object).dispatch("delete", [key]);
+    return Q(object).del(key);
 };
 
 QPromise.prototype.del = // XXX legacy
 QPromise.prototype["delete"] = function (key) {
-    return this.dispatch("delete", [key]);
+    return this.then(function (value) {
+        delete value[key];
+    });
 };
 
 /**
@@ -1122,12 +1104,20 @@ QPromise.prototype["delete"] = function (key) {
 // bound locally because it is used by other methods
 Q.mapply = // XXX As proposed by "Redsandro"
 Q.post = function (object, name, args) {
-    return Q(object).dispatch("post", [name, args]);
+    return Q(object).post(name, args);
 };
 
 QPromise.prototype.mapply = // XXX As proposed by "Redsandro"
 QPromise.prototype.post = function (name, args) {
-    return this.dispatch("post", [name, args]);
+    return this.then(function (value) {
+        // Mark Miller proposes that post with no name should apply a
+        // promised function.
+        if (name === null || name === void 0) {
+            return value.apply(void 0, args);
+        } else {
+            return value[name].apply(value, args);
+        }
+    });
 };
 
 /**
@@ -1140,13 +1130,19 @@ QPromise.prototype.post = function (name, args) {
 Q.send = // XXX Mark Miller's proposed parlance
 Q.mcall = // XXX As proposed by "Redsandro"
 Q.invoke = function (object, name /*...args*/) {
-    return Q(object).dispatch("post", [name, array_slice(arguments, 2)]);
+    return Q(object).post(name, array_slice(arguments, 2));
 };
 
 QPromise.prototype.send = // XXX Mark Miller's proposed parlance
 QPromise.prototype.mcall = // XXX As proposed by "Redsandro"
 QPromise.prototype.invoke = function (name /*...args*/) {
-    return this.dispatch("post", [name, array_slice(arguments, 1)]);
+    return this.post(name, array_slice(arguments, 1));
+};
+
+QPromise.prototype.apply = function (thisp, args) {
+    return this.then(function (value) {
+        return value.apply(thisp, args);
+    });
 };
 
 /**
@@ -1155,11 +1151,11 @@ QPromise.prototype.invoke = function (name /*...args*/) {
  * @param args      array of application arguments
  */
 Q.fapply = function (object, args) {
-    return Q(object).dispatch("apply", [void 0, args]);
+    return Q(object).apply(void 0, args);
 };
 
 QPromise.prototype.fapply = function (args) {
-    return this.dispatch("apply", [void 0, args]);
+    return this.apply(void 0, args);
 };
 
 /**
@@ -1169,11 +1165,11 @@ QPromise.prototype.fapply = function (args) {
  */
 Q["try"] =
 Q.fcall = function (object /* ...args*/) {
-    return Q(object).dispatch("apply", [void 0, array_slice(arguments, 1)]);
+    return Q(object).apply(void 0, array_slice(arguments, 1));
 };
 
 QPromise.prototype.fcall = function (/*...args*/) {
-    return this.dispatch("apply", [void 0, array_slice(arguments)]);
+    return this.apply(void 0, array_slice(arguments));
 };
 
 /**
@@ -1186,20 +1182,20 @@ Q.fbind = function (object /*...args*/) {
     var promise = Q(object);
     var args = array_slice(arguments, 1);
     return function fbound() {
-        return promise.dispatch("apply", [
+        return promise.apply(
             this,
             args.concat(array_slice(arguments))
-        ]);
+        );
     };
 };
 QPromise.prototype.fbind = function (/*...args*/) {
     var promise = this;
     var args = array_slice(arguments);
     return function fbound() {
-        return promise.dispatch("apply", [
+        return promise.apply(
             this,
             args.concat(array_slice(arguments))
-        ]);
+        );
     };
 };
 
@@ -1210,11 +1206,13 @@ QPromise.prototype.fbind = function (/*...args*/) {
  * @return promise for the keys of the eventually settled object
  */
 Q.keys = function (object) {
-    return Q(object).dispatch("keys", []);
+    return Q(object).keys();
 };
 
 QPromise.prototype.keys = function () {
-    return this.dispatch("keys", []);
+    return this.then(function (value) {
+        return object_keys(value);
+    });
 };
 
 /**
@@ -1632,7 +1630,7 @@ QPromise.prototype.npost = function (name, args) {
     var nodeArgs = array_slice(args || []);
     var deferred = defer();
     nodeArgs.push(deferred.makeNodeResolver());
-    this.dispatch("post", [name, nodeArgs]).fail(deferred.reject);
+    this.post(name, nodeArgs).fail(deferred.reject);
     return deferred.promise;
 };
 
@@ -1652,7 +1650,7 @@ Q.ninvoke = function (object, name /*...args*/) {
     var nodeArgs = array_slice(arguments, 2);
     var deferred = defer();
     nodeArgs.push(deferred.makeNodeResolver());
-    Q(object).dispatch("post", [name, nodeArgs]).fail(deferred.reject);
+    Q(object).post(name, nodeArgs).fail(deferred.reject);
     return deferred.promise;
 };
 
@@ -1662,7 +1660,7 @@ QPromise.prototype.ninvoke = function (name /*...args*/) {
     var nodeArgs = array_slice(arguments, 1);
     var deferred = defer();
     nodeArgs.push(deferred.makeNodeResolver());
-    this.dispatch("post", [name, nodeArgs]).fail(deferred.reject);
+    this.post(name, nodeArgs).fail(deferred.reject);
     return deferred.promise;
 };
 
