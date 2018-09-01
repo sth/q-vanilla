@@ -343,7 +343,7 @@ function defer() {
     // forward to the resolved promise.  We coerce the resolution value to a
     // promise using the `resolve` function because it handles both fully
     // non-thenable values and other thenables gracefully.
-    var messages = [], progressListeners = [], resolvedPromise;
+    var messages = [], resolvedPromise;
 
     var deferred = object_create(defer.prototype);
     var promise = object_create(QPromise.prototype);
@@ -352,9 +352,6 @@ function defer() {
         var args = array_slice(arguments);
         if (messages) {
             messages.push(args);
-            if (op === "when" && operands[1]) { // progress operand
-                progressListeners.push(operands[1]);
-            }
         } else {
             Q.nextTick(function () {
                 resolvedPromise.promiseDispatch.apply(resolvedPromise, args);
@@ -395,7 +392,6 @@ function defer() {
         }, void 0);
 
         messages = void 0;
-        progressListeners = void 0;
     }
 
     deferred.promise = promise;
@@ -421,17 +417,7 @@ function defer() {
 
         become(reject(reason));
     };
-    deferred.notify = function (progress) {
-        if (resolvedPromise) {
-            return;
-        }
-
-        array_reduce(progressListeners, function (undefined, progressListener) {
-            Q.nextTick(function () {
-                progressListener(progress);
-            });
-        }, void 0);
-    };
+    deferred.notify = notImplemented("deferred.norify");
 
     return deferred;
 }
@@ -468,7 +454,7 @@ function promise(resolver) {
     }
     var deferred = defer();
     try {
-        resolver(deferred.resolve, deferred.reject, deferred.notify);
+        resolver(deferred.resolve, deferred.reject);
     } catch (reason) {
         deferred.reject(reason);
     }
@@ -612,7 +598,7 @@ QPromise.prototype.toString = function () {
     return "[object QPromise]";
 };
 
-QPromise.prototype.then = function (fulfilled, rejected, progressed) {
+QPromise.prototype.then = function (fulfilled, rejected) {
     var self = this;
     var deferred = defer();
     var done = false;   // ensure the untrusted promise makes at most a
@@ -637,10 +623,6 @@ QPromise.prototype.then = function (fulfilled, rejected, progressed) {
         return reject(exception);
     }
 
-    function _progressed(value) {
-        return typeof progressed === "function" ? progressed(value) : value;
-    }
-
     Q.nextTick(function () {
         self.promiseDispatch(function (value) {
             if (done) {
@@ -658,26 +640,6 @@ QPromise.prototype.then = function (fulfilled, rejected, progressed) {
             deferred.resolve(_rejected(exception));
         }]);
     });
-
-    // Progress propagator need to be attached in the current tick.
-    self.promiseDispatch(void 0, "when", [void 0, function (value) {
-        var newValue;
-        var threw = false;
-        try {
-            newValue = _progressed(value);
-        } catch (e) {
-            threw = true;
-            if (Q.onerror) {
-                Q.onerror(e);
-            } else {
-                throw e;
-            }
-        }
-
-        if (!threw) {
-            deferred.notify(newValue);
-        }
-    }]);
 
     return deferred.promise;
 };
@@ -719,12 +681,11 @@ QPromise.prototype.tap = function (callback) {
  * @param value      promise or immediate reference to observe
  * @param fulfilled  function to be called with the fulfilled value
  * @param rejected   function to be called with the rejection exception
- * @param progressed function to be called on any progress notifications
  * @return promise for the return value from the invoked callback
  */
 Q.when = when;
-function when(value, fulfilled, rejected, progressed) {
-    return Q(value).then(fulfilled, rejected, progressed);
+function when(value, fulfilled, rejected) {
+    return Q(value).then(fulfilled, rejected);
 }
 
 QPromise.prototype.thenResolve = function (value) {
@@ -889,7 +850,7 @@ function coerce(promise) {
     var deferred = defer();
     Q.nextTick(function () {
         try {
-            promise.then(deferred.resolve, deferred.reject, deferred.notify);
+            promise.then(deferred.resolve, deferred.reject);
         } catch (exception) {
             deferred.reject(exception);
         }
@@ -1287,10 +1248,7 @@ function all(promises) {
                             deferred.resolve(promises);
                         }
                     },
-                    deferred.reject,
-                    function (progress) {
-                        deferred.notify({ index: index, value: progress });
-                    }
+                    deferred.reject
                 );
             }
         }, void 0);
@@ -1326,7 +1284,7 @@ function any(promises) {
 
         pendingCount++;
 
-        when(promise, onFulfilled, onRejected, onProgress);
+        when(promise, onFulfilled, onRejected);
         function onFulfilled(result) {
             deferred.resolve(result);
         }
@@ -1340,12 +1298,6 @@ function any(promises) {
 
                 deferred.reject(rejection);
             }
-        }
-        function onProgress(progress) {
-            deferred.notify({
-                index: index,
-                value: progress
-            });
         }
     }, undefined);
 
@@ -1435,14 +1387,8 @@ QPromise.prototype["catch"] = function (rejected) {
  * @param {Function} callback to receive any progress notifications
  * @returns the given promise, unchanged
  */
-Q.progress = progress;
-function progress(object, progressed) {
-    return Q(object).then(void 0, void 0, progressed);
-}
-
-QPromise.prototype.progress = function (progressed) {
-    return this.then(void 0, void 0, progressed);
-};
+Q.progress = notImplemented("progress");
+QPromise.prototype.progress = notImplemented("progress");
 
 /**
  * Provides an opportunity to observe the settling of a promise,
@@ -1484,11 +1430,11 @@ QPromise.prototype["finally"] = function (callback) {
  * @param {Any*} promise at the end of a chain of promises
  * @returns nothing
  */
-Q.done = function (object, fulfilled, rejected, progress) {
-    return Q(object).done(fulfilled, rejected, progress);
+Q.done = function (object, fulfilled, rejected) {
+    return Q(object).done(fulfilled, rejected);
 };
 
-QPromise.prototype.done = function (fulfilled, rejected, progress) {
+QPromise.prototype.done = function (fulfilled, rejected) {
     var onUnhandledError = function (error) {
         // forward to a future turn so that ``when``
         // does not catch it and turn it into a rejection.
@@ -1502,8 +1448,8 @@ QPromise.prototype.done = function (fulfilled, rejected, progress) {
     };
 
     // Avoid unnecessary `nextTick`ing via an unnecessary `when`.
-    var promise = fulfilled || rejected || progress ?
-        this.then(fulfilled, rejected, progress) :
+    var promise = fulfilled || rejected ?
+        this.then(fulfilled, rejected) :
         this;
 
     if (typeof process === "object" && process && process.domain) {
@@ -1542,7 +1488,7 @@ QPromise.prototype.timeout = function (ms, error) {
     }, function (exception) {
         clearTimeout(timeoutId);
         deferred.reject(exception);
-    }, deferred.notify);
+    });
 
     return deferred.promise;
 };
