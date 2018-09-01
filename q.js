@@ -98,8 +98,6 @@ var nextTick =(function () {
     var flushing = false;
     var requestTick = void 0;
     var isNodeJS = false;
-    // queue for late tasks, used by unhandled rejection tracking
-    var laterQueue = [];
 
     function flush() {
         /* jshint loopfunc: true */
@@ -117,10 +115,6 @@ var nextTick =(function () {
             }
             runSingle(task, domain);
 
-        }
-        while (laterQueue.length) {
-            task = laterQueue.pop();
-            runSingle(task);
         }
         flushing = false;
     }
@@ -227,16 +221,8 @@ var nextTick =(function () {
             setTimeout(flush, 0);
         };
     }
-    // runs a task after all other tasks have been run
-    // this is useful for unhandled rejection tracking that needs to happen
-    // after all `then`d tasks have been run.
-    nextTick.runAfter = function (task) {
-        laterQueue.push(task);
-        if (!flushing) {
-            flushing = true;
-            requestTick();
-        }
-    };
+    nextTick.runAfter = notImplemented("nextTick.runAfter");
+
     return nextTick;
 })();
 
