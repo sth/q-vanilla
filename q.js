@@ -84,9 +84,9 @@
 // used for fallback in "allResolved"
 var noop = function () {};
 function notImplemented(name) {
-	return function () {
-		throw new Error("Q: function" + (name ? " "+name : "") + "not implemented");
-	};
+    return function () {
+        throw new Error("Q: function" + (name ? " "+name : "") + "not implemented");
+    };
 }
 
 // Use the fastest possible means to execute a task in a future turn
