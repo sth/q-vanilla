@@ -93,31 +93,8 @@ function notImplemented(name) {
 // of the event loop.
 var nextTick =(function () {
     // linked list of tasks (single, with head node)
-    var head = {task: void 0, next: null};
-    var tail = head;
-    var flushing = false;
-    var requestTick = void 0;
     var isNodeJS = false;
 
-    function flush() {
-        /* jshint loopfunc: true */
-        var task, domain;
-
-        while (head.next) {
-            head = head.next;
-            task = head.task;
-            head.task = void 0;
-            domain = head.domain;
-
-            if (domain) {
-                head.domain = void 0;
-                domain.enter();
-            }
-            runSingle(task, domain);
-
-        }
-        flushing = false;
-    }
     // runs a single function in the async queue
     function runSingle(task, domain) {
         try {
@@ -134,7 +111,6 @@ var nextTick =(function () {
                 if (domain) {
                     domain.exit();
                 }
-                setTimeout(flush, 0);
                 if (domain) {
                     domain.enter();
                 }
@@ -156,20 +132,10 @@ var nextTick =(function () {
     }
 
     nextTick = function (task) {
-        tail = tail.next = {
-            task: task,
-            domain: isNodeJS && process.domain,
-            next: null
-        };
-
-        if (!flushing) {
-            flushing = true;
-            requestTick();
-        }
-    };
-
-    requestTick = function() {
-        Promise.resolve().then(flush);
+        var domain = isNodeJS && process.domain;
+		Promise.resolve().then(function() {
+			runSingle(task, domain);
+		});
     };
 
     nextTick.runAfter = notImplemented("nextTick.runAfter");
