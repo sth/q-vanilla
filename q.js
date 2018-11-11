@@ -85,62 +85,9 @@
 var noop = function () {};
 function notImplemented(name) {
     return function () {
-        throw new Error("Q: function" + (name ? " "+name : "") + "not implemented");
+        throw new Error("Q: function" + (name ? " "+name : "") + " not implemented");
     };
 }
-
-// Use the fastest possible means to execute a task in a future turn
-// of the event loop.
-var nextTick =(function () {
-    // linked list of tasks (single, with head node)
-    var isNodeJS = false;
-
-    // runs a single function in the async queue
-    function runSingle(task, domain) {
-        try {
-            task();
-
-        } catch (e) {
-            if (isNodeJS) {
-                // In node, uncaught exceptions are considered fatal errors.
-                // Re-throw them synchronously to interrupt flushing!
-
-                // Ensure continuation if the uncaught exception is suppressed
-                // listening "uncaughtException" events (as domains does).
-                // Continue in next event to avoid tick recursion.
-                if (domain) {
-                    domain.exit();
-                }
-                if (domain) {
-                    domain.enter();
-                }
-
-                throw e;
-
-            } else {
-                // In browsers, uncaught exceptions are not fatal.
-                // Re-throw them asynchronously to avoid slow-downs.
-                setTimeout(function () {
-                    throw e;
-                }, 0);
-            }
-        }
-
-        if (domain) {
-            domain.exit();
-        }
-    }
-
-    nextTick = function (task) {
-        var domain = isNodeJS && process.domain;
-		Promise.resolve().then(function() {
-			runSingle(task, domain);
-		});
-    };
-
-    nextTick.runAfter = notImplemented("nextTick.runAfter");
-    return nextTick;
-})();
 
 // Attempt to make generics safe in the face of downstream
 // modifications.
@@ -276,6 +223,10 @@ function Q(value) {
         return value;
     }
 
+	if (value instanceof Promise) {
+		return new QPromise(value, { state: "pending" });
+	}
+
     // assimilate thenables
     if (isPromiseAlike(value)) {
         return coerce(value);
@@ -289,7 +240,7 @@ Q.resolve = Q;
  * Performs a task in a future turn of the event loop.
  * @param {Function} task
  */
-Q.nextTick = nextTick;
+Q.nextTick = notImplemented("nextTick");
 
 /**
  * Constructs a {promise, resolve, reject} object.
@@ -309,81 +260,59 @@ function defer() {
     // forward to the resolved promise.  We coerce the resolution value to a
     // promise using the `resolve` function because it handles both fully
     // non-thenable values and other thenables gracefully.
-    var messages = [], resolvedPromise;
-
     var deferred = object_create(defer.prototype);
-    var promise = object_create(QPromise.prototype);
 
-    promise.promiseDispatch = function (resolve, op, operands) {
-        var args = array_slice(arguments);
-        if (messages) {
-            messages.push(args);
-        } else {
-            Q.nextTick(function () {
-                resolvedPromise.promiseDispatch.apply(resolvedPromise, args);
-            });
-        }
-    };
-
-    // XXX deprecated
-    promise.valueOf = function () {
-        if (messages) {
-            return promise;
-        }
-        var nearerValue = nearer(resolvedPromise);
-        if (isPromise(nearerValue)) {
-            resolvedPromise = nearerValue; // shorten chain
-        }
-        return nearerValue;
-    };
-
-    promise.inspect = function () {
-        if (!resolvedPromise) {
-            return { state: "pending" };
-        }
-        return resolvedPromise.inspect();
-    };
+	var native_resolve, native_reject;
+	var native_promise = new Promise(function (resolve, reject) {
+		native_resolve = resolve;
+		native_reject = reject;
+	});
+    var promise = new QPromise(native_promise, { state: "pending" });
 
     // NOTE: we do the checks for `resolvedPromise` in each method, instead of
     // consolidating them into `become`, since otherwise we'd create new
     // promises with the lines `become(whatever(value))`. See e.g. GH-252.
 
-    function become(newPromise) {
-        resolvedPromise = newPromise;
-
-        array_reduce(messages, function (undefined, message) {
-            Q.nextTick(function () {
-                newPromise.promiseDispatch.apply(newPromise, message);
-            });
-        }, void 0);
-
-        messages = void 0;
-    }
-
     deferred.promise = promise;
     deferred.resolve = function (value) {
-        if (resolvedPromise) {
-            return;
-        }
-
-        become(Q(value));
+		if (value instanceof QPromise) {
+			if (promise._inspect.state !== "fulfilled" && promise._inspect.state !== "rejected") {
+				if (value._inspect.state == "fulfilled") {
+					promise._inspect.state = "fulfilled";
+					promise._inspect.value = value._inspect.value;
+				}
+				else if (value._inspect.state == "rejected") {
+					promise._inspect.state = "rejected";
+					promise._inspect.reason = value._inspect.reason;
+				}
+			}
+			native_resolve(value._native);
+		}
+		else {
+			if (!isPromiseAlike(value)) {
+				if (promise._inspect.state !== "fulfilled" && promise._inspect.state !== "rejected") {
+					promise._inspect.state = "fulfilled";
+					promise._inspect.value = value;
+				}
+			}
+			native_resolve(value);
+		}
     };
 
     deferred.fulfill = function (value) {
-        if (resolvedPromise) {
-            return;
-        }
-
-        become(fulfill(value));
+		if (isPromiseAlike(value)) {
+			notImplemented("deferred.fulfill(thenable)")();
+		}
+		promise._inspect.state = "fulfilled";
+		promise._inspect.value = value;
+		native_resolve(value);
     };
     deferred.reject = function (reason) {
-        if (resolvedPromise) {
-            return;
-        }
-
-        become(reject(reason));
+		promise._inspect.state = "rejected";
+		promise._inspect.reason = reason;
+		native_reject(reason);
     };
-    deferred.notify = notImplemented("deferred.norify");
+    deferred.notify = notImplemented("deferred.notify");
 
     return deferred;
 }
@@ -505,109 +434,43 @@ QPromise.prototype.race = function () {
  * of the returned object, apart from that it is usable whereever promises are
  * bought and sold.
  */
-Q.makePromise = QPromise;
-function QPromise(descriptor, fallback, inspect) {
-    if (fallback === void 0) {
-        fallback = function (op) {
-            return reject(new Error(
-                "QPromise does not support operation: " + op
-            ));
-        };
-    }
-    if (inspect === void 0) {
-        inspect = function () {
-            return {state: "unknown"};
-        };
-    }
+Q.makePromise = notImplemented("makePromise");
 
-    var promise = object_create(QPromise.prototype);
-
-    promise.promiseDispatch = function (resolve, op, args) {
-        var result;
-        try {
-            if (descriptor[op]) {
-                result = descriptor[op].apply(promise, args);
-            } else {
-                result = fallback.call(promise, op, args);
-            }
-        } catch (exception) {
-            result = reject(exception);
-        }
-        if (resolve) {
-            resolve(result);
-        }
-    };
-
-    promise.inspect = inspect;
-
-    // XXX deprecated `valueOf` and `exception` support
-    if (inspect) {
-        var inspected = inspect();
-        if (inspected.state === "rejected") {
-            promise.exception = inspected.reason;
-        }
-
-        promise.valueOf = function () {
-            var inspected = inspect();
-            if (inspected.state === "pending" ||
-                inspected.state === "rejected") {
-                return promise;
-            }
-            return inspected.value;
-        };
-    }
-
-    return promise;
+Q.fromNative = fromNative;
+function fromNative(p) {
+    return new QPromise(p, { state: "pending" });
 }
+
+function QPromise(nativePromise, inspect) {
+    if (inspect === void 0) {
+        inspect = { state: "unknown" };
+	}
+	this._native = nativePromise;
+	this._inspect = inspect;
+
+	var that = this;
+	nativePromise.then(function (value) {
+		that._inspect.state = "fulfilled";
+		that._inspect.value = value;
+	}, function (reason) {
+		that._inspect.state = "rejected";
+		that._inspect.reason = reason;
+	});
+
+	// Avoid unhandled exception errors by default
+	nativePromise.then(void 0, function(){});
+}
+
+QPromise.prototype.inspect = function () {
+	return this._inspect;
+};
 
 QPromise.prototype.toString = function () {
     return "[object QPromise]";
 };
 
 QPromise.prototype.then = function (fulfilled, rejected) {
-    var self = this;
-    var deferred = defer();
-    var done = false;   // ensure the untrusted promise makes at most a
-                        // single call to one of the callbacks
-
-    function _fulfilled(value) {
-        try {
-            return typeof fulfilled === "function" ? fulfilled(value) : value;
-        } catch (exception) {
-            return reject(exception);
-        }
-    }
-
-    function _rejected(exception) {
-        if (typeof rejected === "function") {
-            try {
-                return rejected(exception);
-            } catch (newException) {
-                return reject(newException);
-            }
-        }
-        return reject(exception);
-    }
-
-    Q.nextTick(function () {
-        self.promiseDispatch(function (value) {
-            if (done) {
-                return;
-            }
-            done = true;
-
-            deferred.resolve(_fulfilled(value));
-        }, "when", [function (exception) {
-            if (done) {
-                return;
-            }
-            done = true;
-
-            deferred.resolve(_rejected(exception));
-        }]);
-    });
-
-    return deferred.promise;
+	return fromNative(this._native.then(fulfilled, rejected));
 };
 
 Q.tap = function (promise, callback) {
@@ -754,18 +617,7 @@ Q.stopUnhandledRejectionTracking = notImplemented("stopUnhandledRejectionTrackin
  */
 Q.reject = reject;
 function reject(reason) {
-    var rejection = QPromise({
-        "when": function (rejected) {
-            // note that the error has been handled
-            return rejected ? rejected(reason) : this;
-        }
-    }, function fallback() {
-        return this;
-    }, function inspect() {
-        return { state: "rejected", reason: reason };
-    });
-
-    return rejection;
+	return new QPromise(Promise.reject(reason), { state: "rejected", reason: reason });
 }
 
 /**
@@ -774,13 +626,12 @@ function reject(reason) {
  */
 Q.fulfill = fulfill;
 function fulfill(value) {
-    return QPromise({
-        "when": function () {
-            return value;
-        }
-    }, void 0, function inspect() {
-        return { state: "fulfilled", value: value };
-    });
+	if (isPromiseAlike(value)) {
+		notImplemented("fulfill(thenable)")();
+	}
+	else {
+		return new QPromise(Promise.resolve(value), { state: "fulfilled", value: value });
+	}
 }
 
 /**
@@ -789,15 +640,7 @@ function fulfill(value) {
  * @returns a Q promise
  */
 function coerce(promise) {
-    var deferred = defer();
-    Q.nextTick(function () {
-        try {
-            promise.then(deferred.resolve, deferred.reject);
-        } catch (exception) {
-            deferred.reject(exception);
-        }
-    });
-    return deferred.promise;
+	return new QPromise(Promise.resolve(promise), { state: "pending" });
 }
 
 /**
@@ -809,16 +652,7 @@ function coerce(promise) {
  * additionally responds to the "isDef" message
  * without a rejection.
  */
-Q.master = master;
-function master(object) {
-    return QPromise({
-        "isDef": function () {}
-    }, function fallback(op, args) {
-        return dispatch(object, op, args);
-    }, function () {
-        return Q(object).inspect();
-    });
-}
+Q.master = notImplemented("master");
 
 /**
  * Spreads the values of a promised array of arguments into the
@@ -990,19 +824,8 @@ function promised(callback) {
  * @param args further arguments to be forwarded to the operation
  * @returns result {Promise} a promise for the result of the operation
  */
-Q.dispatch = dispatch;
-function dispatch(object, op, args) {
-    return Q(object).dispatch(op, args);
-}
-
-QPromise.prototype.dispatch = function (op, args) {
-    var self = this;
-    var deferred = defer();
-    Q.nextTick(function () {
-        self.promiseDispatch(deferred.resolve, op, args);
-    });
-    return deferred.promise;
-};
+Q.dispatch = notImplemented("dispatch");
+QPromise.prototype.dispatch = notImplemented("dispatch");
 
 /**
  * Gets the value of a property in a future turn.
@@ -1400,15 +1223,11 @@ Q.done = function (object, fulfilled, rejected) {
 
 QPromise.prototype.done = function (fulfilled, rejected) {
     var onUnhandledError = function (error) {
-        // forward to a future turn so that ``when``
-        // does not catch it and turn it into a rejection.
-        Q.nextTick(function () {
-            if (Q.onerror) {
-                Q.onerror(error);
-            } else {
-                throw error;
-            }
-        });
+		if (Q.onerror) {
+			Q.onerror(error);
+		} else {
+			throw error;
+		}
     };
 
     // Avoid unnecessary `nextTick`ing via an unnecessary `when`.
@@ -1420,7 +1239,7 @@ QPromise.prototype.done = function (fulfilled, rejected) {
         onUnhandledError = process.domain.bind(onUnhandledError);
     }
 
-    promise.then(void 0, onUnhandledError);
+    promise._native.then(void 0, onUnhandledError);
 };
 
 /**
@@ -1647,14 +1466,10 @@ function nodeify(object, nodeback) {
 
 QPromise.prototype.nodeify = function (nodeback) {
     if (nodeback) {
-        this.then(function (value) {
-            Q.nextTick(function () {
-                nodeback(null, value);
-            });
+        this.done(function (value) {
+			nodeback(null, value);
         }, function (error) {
-            Q.nextTick(function () {
-                nodeback(error);
-            });
+			nodeback(error);
         });
     } else {
         return this;

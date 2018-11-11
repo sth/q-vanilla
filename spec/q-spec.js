@@ -15,6 +15,10 @@ var REASON = "this is not an error, but it might show up in the console";
 // In browsers that support strict mode, it'll be `undefined`; otherwise, the global.
 var calledAsFunctionThis = (function () { return this; }());
 
+function nextTick(action) {
+	Promise.resolve().then(action);
+}
+
 afterEach(function () {
     Q.onerror = null;
 });
@@ -92,7 +96,7 @@ describe("defer and when", function () {
             expect(value).toEqual(10);
             turn++;
         });
-        Q.nextTick(function () {
+        nextTick(function () {
             expect(turn).toEqual(1);
             deferred.resolve(10);
             turn++;
@@ -111,7 +115,7 @@ describe("defer and when", function () {
             expect(value).toEqual(-1);
             turn++;
         });
-        Q.nextTick(function () {
+        nextTick(function () {
             expect(turn).toEqual(1);
             deferred.reject(-1);
             turn++;
@@ -193,14 +197,9 @@ describe("always next tick", function () {
 
 	it("allows overriding global nextTick", function () {
 		var spy = jasmine.createSpy();
-		spyOn(Q, 'nextTick').andCallFake(function immediateTick(task){
-			task();
-		});
-
 		Q.when(Q(), spy);
 
 		expect(spy).toHaveBeenCalled();
-		expect(Q.nextTick).toHaveBeenCalled();
 	});
 });
 
@@ -1380,7 +1379,7 @@ describe("done", function () {
         describe("and the callback throws", function () {
             it("should rethrow that error in the next turn and return nothing", function () {
                 var turn = 0;
-                Q.nextTick(function () {
+                nextTick(function () {
                     ++turn;
                 });
 
@@ -1428,7 +1427,7 @@ describe("done", function () {
         describe("and the errback throws", function () {
             it("should rethrow that error in the next turn and return nothing", function () {
                 var turn = 0;
-                Q.nextTick(function () {
+                nextTick(function () {
                     ++turn;
                 });
 
@@ -1455,7 +1454,7 @@ describe("done", function () {
         describe("and there is no errback", function () {
             it("should throw the original error in the next turn", function () {
                 var turn = 0;
-                Q.nextTick(function () {
+                nextTick(function () {
                     ++turn;
                 });
 
@@ -2253,23 +2252,6 @@ describe("possible regressions", function () {
             Q.delay(10).then(deferred.reject);
 
             return deferred.promise;
-        });
-    });
-
-    describe("gh-75", function () {
-        it("does not double-resolve misbehaved promises", function () {
-            var badPromise = Q.makePromise({
-                post: function () { return "hello"; }
-            });
-
-            var resolutions = 0;
-            function onResolution() {
-                ++resolutions;
-            }
-
-            return Q.when(badPromise, onResolution, onResolution).then(function () {
-                expect(resolutions).toBe(1);
-            });
         });
     });
 
