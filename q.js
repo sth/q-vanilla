@@ -154,12 +154,6 @@ var array_map = uncurryThis(
     }
 );
 
-var object_create = Object.create || function (prototype) {
-    function Type() { }
-    Type.prototype = prototype;
-    return new Type();
-};
-
 var object_hasOwnProperty = uncurryThis(Object.prototype.hasOwnProperty);
 
 var object_keys = Object.keys || function (object) {
@@ -257,14 +251,10 @@ Q.nextTick = notImplemented("nextTick");
  */
 Q.defer = defer;
 function defer() {
-    // if "messages" is an "Array", that indicates that the promise has not yet
-    // been resolved.  If it is "undefined", it has been resolved.  Each
-    // element of the messages array is itself an array of complete arguments to
-    // forward to the resolved promise.  We coerce the resolution value to a
-    // promise using the `resolve` function because it handles both fully
-    // non-thenable values and other thenables gracefully.
-    var deferred = object_create(defer.prototype);
+	return new Deferred();
+}
 
+function Deferred() {
 	var native_resolve, native_reject;
 	var native_promise = new Promise(function (resolve, reject) {
 		native_resolve = resolve;
@@ -272,12 +262,8 @@ function defer() {
 	});
     var promise = new QPromise(native_promise, { state: "pending" });
 
-    // NOTE: we do the checks for `resolvedPromise` in each method, instead of
-    // consolidating them into `become`, since otherwise we'd create new
-    // promises with the lines `become(whatever(value))`. See e.g. GH-252.
-
-    deferred.promise = promise;
-    deferred.resolve = function (value) {
+    this.promise = promise;
+    this.resolve = function (value) {
 		if (value instanceof QPromise) {
 			if (promise._inspect.state !== "fulfilled" && promise._inspect.state !== "rejected") {
 				if (value._inspect.state == "fulfilled") {
@@ -302,7 +288,7 @@ function defer() {
 		}
     };
 
-    deferred.fulfill = function (value) {
+    this.fulfill = function (value) {
 		if (isPromiseAlike(value)) {
 			notImplemented("deferred.fulfill(thenable)")();
 		}
@@ -310,14 +296,12 @@ function defer() {
 		promise._inspect.value = value;
 		native_resolve(value);
     };
-    deferred.reject = function (reason) {
+    this.reject = function (reason) {
 		promise._inspect.state = "rejected";
 		promise._inspect.reason = reason;
 		native_reject(reason);
     };
-    deferred.notify = notImplemented("deferred.notify");
-
-    return deferred;
+    this.notify = notImplemented("deferred.notify");
 }
 
 /**
@@ -325,7 +309,7 @@ function defer() {
  * promise.
  * @returns a nodeback
  */
-defer.prototype.makeNodeResolver = function () {
+Deferred.prototype.makeNodeResolver = function () {
     var self = this;
     return function (error, value) {
         if (error) {
