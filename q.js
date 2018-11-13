@@ -1222,10 +1222,6 @@ QPromise.prototype.done = function (fulfilled, rejected) {
         this.then(fulfilled, rejected) :
         this;
 
-    if (typeof process === "object" && process && process.domain) {
-        onUnhandledError = process.domain.bind(onUnhandledError);
-    }
-
     promise._native.then(void 0, onUnhandledError);
 };
 
