@@ -119,8 +119,6 @@ function uncurryThis(f) {
 var array_slice = uncurryThis(Array.prototype.slice);
 var array_reduce = uncurryThis(Array.prototype.reduce);
 var array_map = uncurryThis(Array.prototype.map);
-var object_keys = Object.keys;
-var object_toString = uncurryThis(Object.prototype.toString);
 
 function isObject(value) {
     return value === Object(value);
@@ -131,7 +129,7 @@ function isObject(value) {
 // FIXME: Remove this function once ES6 generators are in SpiderMonkey.
 function isStopIteration(exception) {
     return (
-        object_toString(exception) === "[object StopIteration]" ||
+        Object.prototype.toString.call(exception) === "[object StopIteration]" ||
         exception instanceof QReturnValue
     );
 }
@@ -941,7 +939,7 @@ Q.keys = function (object) {
 
 QPromise.prototype.keys = function () {
     return this.then(function (value) {
-        return object_keys(value);
+        return Object.keys(value);
     });
 };
 
