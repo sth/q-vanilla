@@ -86,10 +86,14 @@
 
 // used for fallback in "allResolved"
 var noop = function () {};
-function notImplemented(name) {
-    return function () {
-        throw new Error("Q: function" + (name ? " "+name : "") + " not implemented");
-    };
+function notImplementedError(name) {
+	return new Error("Q: function" + (name ? " "+name : "") + " not implemented");
+}
+
+function notImplemented(obj, name) {
+	obj[name] = function() {
+		throw notImplementedError(name);
+	}
 }
 
 // Attempt to make generics safe in the face of downstream
@@ -237,7 +241,7 @@ Q.resolve = Q;
  * Performs a task in a future turn of the event loop.
  * @param {Function} task
  */
-Q.nextTick = notImplemented("nextTick");
+notImplemented(Q, "nextTick");
 
 /**
  * Constructs a {promise, resolve, reject} object.
@@ -290,7 +294,7 @@ function Deferred() {
 
     this.fulfill = function (value) {
 		if (isPromiseAlike(value)) {
-			notImplemented("deferred.fulfill(thenable)")();
+			throw notImplementedError("fulfill(thenable)");
 		}
 		promise._inspect.state = "fulfilled";
 		promise._inspect.value = value;
@@ -301,7 +305,7 @@ function Deferred() {
 		promise._inspect.reason = reason;
 		native_reject(reason);
     };
-    this.notify = notImplemented("deferred.notify");
+    notImplemented(this, "notify");
 }
 
 /**
@@ -421,7 +425,7 @@ QPromise.prototype.race = function () {
  * of the returned object, apart from that it is usable whereever promises are
  * bought and sold.
  */
-Q.makePromise = notImplemented("makePromise");
+notImplemented(Q, "makePromise");
 
 Q.fromNative = fromNative;
 function fromNative(p) {
@@ -594,9 +598,9 @@ QPromise.prototype.isRejected = function () {
     return this.inspect().state === "rejected";
 };
 
-Q.resetUnhandledRejections = notImplemented("resetUnhandledRejections");
-Q.getUnhandledReasons = notImplemented("getUnhandledReasons");
-Q.stopUnhandledRejectionTracking = notImplemented("stopUnhandledRejectionTracking");
+notImplemented(Q, "resetUnhandledRejections");
+notImplemented(Q, "getUnhandledReasons");
+notImplemented(Q, "stopUnhandledRejectionTracking");
 
 /**
  * Constructs a rejected promise.
@@ -614,7 +618,7 @@ function reject(reason) {
 Q.fulfill = fulfill;
 function fulfill(value) {
 	if (isPromiseAlike(value)) {
-		notImplemented("fulfill(thenable)")();
+		throw notImplementedError("fulfill(thenable)");
 	}
 	else {
 		return new QPromise(Promise.resolve(value), { state: "fulfilled", value: value });
@@ -639,7 +643,7 @@ function coerce(promise) {
  * additionally responds to the "isDef" message
  * without a rejection.
  */
-Q.master = notImplemented("master");
+notImplemented(Q, "master");
 
 /**
  * Spreads the values of a promised array of arguments into the
@@ -811,8 +815,8 @@ function promised(callback) {
  * @param args further arguments to be forwarded to the operation
  * @returns result {Promise} a promise for the result of the operation
  */
-Q.dispatch = notImplemented("dispatch");
-QPromise.prototype.dispatch = notImplemented("dispatch");
+notImplemented(Q, "dispatch");
+notImplemented(QPromise.prototype, "dispatch");
 
 /**
  * Gets the value of a property in a future turn.
@@ -1161,8 +1165,8 @@ QPromise.prototype["catch"] = function (rejected) {
  * @param {Function} callback to receive any progress notifications
  * @returns the given promise, unchanged
  */
-Q.progress = notImplemented("progress");
-QPromise.prototype.progress = notImplemented("progress");
+notImplemented(Q, "progress");
+notImplemented(QPromise.prototype, "progress");
 
 /**
  * Provides an opportunity to observe the settling of a promise,
