@@ -93,7 +93,7 @@ function notImplementedError(name) {
 function notImplemented(obj, name) {
 	obj[name] = function() {
 		throw notImplementedError(name);
-	}
+	};
 }
 
 // Attempt to make generics safe in the face of downstream
@@ -220,11 +220,11 @@ function Deferred() {
     this.resolve = function (value) {
 		if (value instanceof QPromise) {
 			if (promise._inspect.state !== "fulfilled" && promise._inspect.state !== "rejected") {
-				if (value._inspect.state == "fulfilled") {
+				if (value._inspect.state === "fulfilled") {
 					promise._inspect.state = "fulfilled";
 					promise._inspect.value = value._inspect.value;
 				}
-				else if (value._inspect.state == "rejected") {
+				else if (value._inspect.state === "rejected") {
 					promise._inspect.state = "rejected";
 					promise._inspect.reason = value._inspect.reason;
 				}
