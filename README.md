@@ -1,6 +1,6 @@
 # Q API wrapper around native Promises
 
-This is an implementation of the [Q](/kriskowal/q) Promise API,
+This is an implementation of the [Q Promise API][Q],
 based on existing Promises (either native to the Browser/... or
 polyfilled with some other library).
 
@@ -9,7 +9,7 @@ library to extend native Promises with many useful functions.
 
 ## API Documentation
 
-See [kriskowal/q](/kriskowal/q) for tbhe API reference
+See [kriskowal/q][Q] for tbhe API reference
 
 ## Limitations
 
@@ -19,4 +19,6 @@ don't make sense for the wrapper. They should be documented here.
 ## Acknowledgements
 
 The code is derived from the original Q implementation,
-this repository is based on a fork of [kriskowal/q](/kriskowal/q).
+this repository is based on a fork of [kriskowal/q][Q]
+
+ [Q]: https://github.com/kriskowal/q
