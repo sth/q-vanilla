@@ -954,35 +954,14 @@ QPromise.prototype.keys = function () {
 // http://wiki.ecmascript.org/doku.php?id=strawman:concurrency&rev=1308776521#allfulfilled
 Q.all = all;
 function all(promises) {
-    return when(promises, function (promises) {
-        var pendingCount = 0;
-        var deferred = defer();
-        array_reduce(promises, function (undefined, promise, index) {
-            var snapshot;
-            if (
-                isPromise(promise) &&
-                (snapshot = promise.inspect()).state === "fulfilled"
-            ) {
-                promises[index] = snapshot.value;
-            } else {
-                ++pendingCount;
-                when(
-                    promise,
-                    function (value) {
-                        promises[index] = value;
-                        if (--pendingCount === 0) {
-                            deferred.resolve(promises);
-                        }
-                    },
-                    deferred.reject
-                );
-            }
-        }, void 0);
-        if (pendingCount === 0) {
-            deferred.resolve(promises);
-        }
-        return deferred.promise;
-    });
+	return Q(promises).then(function (rpromises) {
+		return Promise.all(rpromises).then(function (rvalues) {
+			// Q.all is specified to modify and return the input array
+			rpromises.length = 0;
+			Array.prototype.push.apply(rpromises, rvalues);
+			return rpromises;
+		});
+	});
 }
 
 QPromise.prototype.all = function () {
