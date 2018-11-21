@@ -101,7 +101,7 @@ function Q_export(name) {
 	Q[name] = function(object) {
 		var p = Q(object);
 		return p[name].apply(p, array_slice(arguments, 1));
-	}
+	};
 }
 
 function QP_export(names, fun) {
@@ -109,10 +109,12 @@ function QP_export(names, fun) {
 		QPromise.prototype[name] = fun;
 		Q_export(name, fun);
 	}
-	if (typeof names === "string")
+	if (typeof names === "string") {
 		setf(names);
-	else
+	}
+	else {
 		names.forEach(setf);
+	}
 }
 
 
@@ -162,17 +164,6 @@ if (typeof ReturnValue !== "undefined") {
 } else {
     QReturnValue = function (value) {
         this.value = value;
-    };
-}
-
-function deprecate(callback, name, alternative) {
-    return function () {
-        if (typeof console !== "undefined" &&
-            typeof console.warn === "function") {
-            console.warn(name + " is deprecated, use " + alternative +
-                         " instead.", new Error("").stack);
-        }
-        return callback.apply(callback, arguments);
     };
 }
 
@@ -359,7 +350,7 @@ QP_export("join", function (that) {
  */
 QP_export("race", function() {
 	return this.then(function (promises) {
-		return Promise.race(answerPs);
+		return Promise.race(promises);
 	});
 });
 promise.race = Q.race; // ES6
@@ -503,7 +494,7 @@ function isPromiseAlike(object) {
  */
 Q.isPending = function(object) {
     return isPromise(object) && object.isPending();
-}
+};
 
 QPromise.prototype.isPending = function () {
     return this.inspect().state === "pending";
@@ -515,7 +506,7 @@ QPromise.prototype.isPending = function () {
  */
 Q.isFulfilled = function(object) {
     return !isPromise(object) || object.isFulfilled();
-}
+};
 
 QPromise.prototype.isFulfilled = function () {
     return this.inspect().state === "fulfilled";
@@ -526,7 +517,7 @@ QPromise.prototype.isFulfilled = function () {
  */
 Q.isRejected = function(object) {
     return isPromise(object) && object.isRejected();
-}
+};
 
 QPromise.prototype.isRejected = function () {
     return this.inspect().state === "rejected";
@@ -542,7 +533,7 @@ notImplemented(Q, "stopUnhandledRejectionTracking");
  */
 Q.reject = function(reason) {
 	return new QPromise(Promise.reject(reason), { state: "rejected", reason: reason });
-}
+};
 promise.reject = Q.reject; // ES6
 
 /**
@@ -943,7 +934,7 @@ QPromise.prototype.any = function () {
  * (or values)
  * @return a promise for an array of promises
  */
-QP_export("allResolved", function(promises) {
+QP_export("allResolved", function() {
     return this.then(function (promises) {
         promises = array_map(promises, Q);
         return Q.all(array_map(promises, function (promise) {
@@ -1148,7 +1139,7 @@ QP_export("nfcall", function (/*...args*/) {
  * .done()
  */
 QP_export(["nfbind", "denodeify"], function (/*...args*/) {
-	var callback = this
+	var callback = this;
     var baseArgs = array_slice(arguments);
     return function () {
         var nodeArgs = baseArgs.concat(array_slice(arguments));
