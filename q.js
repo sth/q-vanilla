@@ -200,7 +200,7 @@ function Q(value) {
     if (isPromiseAlike(value)) {
         return coerce(value);
     } else {
-        return fulfill(value);
+        return Q.fulfill(value);
     }
 }
 Q.resolve = Q;
@@ -315,9 +315,6 @@ function promise(resolver) {
     return deferred.promise;
 }
 
-promise.race = race; // ES6
-promise.all = all; // ES6
-promise.reject = reject; // ES6
 promise.resolve = Q; // ES6
 
 // XXX experimental.  This method is a way to denote that a local value is
@@ -360,23 +357,12 @@ QP_export("join", function (that) {
  * @param answers {Array[Any*]} promises to race
  * @returns {Any*} the first promise to be settled
  */
-Q.race = race;
-function race(answerPs) {
-    return promise(function (resolve, reject) {
-        // Switch to this once we can assume at least ES5
-        // answerPs.forEach(function (answerP) {
-        //     Q(answerP).then(resolve, reject);
-        // });
-        // Use this in the meantime
-        for (var i = 0, len = answerPs.length; i < len; i++) {
-            Q(answerPs[i]).then(resolve, reject);
-        }
-    });
-}
-
-QPromise.prototype.race = function () {
-    return this.then(Q.race);
-};
+QP_export("race", function() {
+	return this.then(function (promises) {
+		return Promise.race(answerPs);
+	});
+});
+promise.race = Q.race; // ES6
 
 /**
  * Constructs a Promise with a promise descriptor object and optional fallback
@@ -463,26 +449,17 @@ QP_export("tap", function (callback) {
  * @param rejected   function to be called with the rejection exception
  * @return promise for the return value from the invoked callback
  */
-Q.when = when;
-function when(value, fulfilled, rejected) {
+Q.when = function(value, fulfilled, rejected) {
     return Q(value).then(fulfilled, rejected);
-}
+};
 
-QPromise.prototype.thenResolve = function (value) {
+QP_export("thenResolve", function (value) {
     return this.then(function () { return value; });
-};
+});
 
-Q.thenResolve = function (promise, value) {
-    return Q(promise).thenResolve(value);
-};
-
-QPromise.prototype.thenReject = function (reason) {
+QP_export("thenReject", function (reason) {
     return this.then(function () { throw reason; });
-};
-
-Q.thenReject = function (promise, reason) {
-    return Q(promise).thenReject(reason);
-};
+});
 
 /**
  * If an object is not a promise, it is as "near" as possible.
@@ -566,24 +543,23 @@ notImplemented(Q, "stopUnhandledRejectionTracking");
  * Constructs a rejected promise.
  * @param reason value describing the failure
  */
-Q.reject = reject;
-function reject(reason) {
+Q.reject = function(reason) {
 	return new QPromise(Promise.reject(reason), { state: "rejected", reason: reason });
 }
+promise.reject = Q.reject; // ES6
 
 /**
  * Constructs a fulfilled promise for an immediate reference.
  * @param value immediate reference
  */
-Q.fulfill = fulfill;
-function fulfill(value) {
+Q.fulfill = function(value) {
 	if (isPromiseAlike(value)) {
 		throw notImplementedError("fulfill(thenable)");
 	}
 	else {
 		return new QPromise(Promise.resolve(value), { state: "fulfilled", value: value });
 	}
-}
+};
 
 /**
  * Converts thenables to Q promises.
@@ -668,12 +644,12 @@ function async(makeGenerator) {
                 try {
                     result = generator[verb](arg);
                 } catch (exception) {
-                    return reject(exception);
+                    return Q.reject(exception);
                 }
                 if (result.done) {
                     return Q(result.value);
                 } else {
-                    return when(result.value, callback, errback);
+                    return Q(result.value).then(callback, errback);
                 }
             } else {
                 // SpiderMonkey Generators
@@ -684,10 +660,10 @@ function async(makeGenerator) {
                     if (isStopIteration(exception)) {
                         return Q(exception.value);
                     } else {
-                        return reject(exception);
+                        return Q.reject(exception);
                     }
                 }
-                return when(result, callback, errback);
+                return Q(result).then(callback, errback);
             }
         }
         var generator = makeGenerator.apply(this, arguments);
@@ -757,7 +733,7 @@ function _return(value) {
 Q.promised = promised;
 function promised(callback) {
     return function () {
-        return Q.spread([this, all(arguments)], function (self, args) {
+        return Q.spread([this, Q.all(arguments)], function (self, args) {
             return callback.apply(self, args);
         });
     };
@@ -908,9 +884,8 @@ QP_export("keys", function () {
  */
 // By Mark Miller
 // http://wiki.ecmascript.org/doku.php?id=strawman:concurrency&rev=1308776521#allfulfilled
-Q.all = all;
-function all(promises) {
-	return Q(promises).then(function (rpromises) {
+QP_export("all", function() {
+	return this.then(function (rpromises) {
 		return Promise.all(rpromises).then(function (rvalues) {
 			// Q.all is specified to modify and return the input array
 			rpromises.length = 0;
@@ -918,11 +893,8 @@ function all(promises) {
 			return rpromises;
 		});
 	});
-}
-
-QPromise.prototype.all = function () {
-    return all(this);
-};
+});
+promise.all = Q.all; // ES6
 
 /**
  * Returns the first resolved promise of an array. Prior rejected promises are
@@ -945,7 +917,7 @@ function any(promises) {
 
         pendingCount++;
 
-        when(promise, onFulfilled, onRejected);
+        Q(promise).then(onFulfilled, onRejected);
         function onFulfilled(result) {
             deferred.resolve(result);
         }
@@ -981,9 +953,9 @@ QPromise.prototype.any = function () {
 QP_export("allResolved", function(promises) {
     return this.then(function (promises) {
         promises = array_map(promises, Q);
-        return when(all(array_map(promises, function (promise) {
-            return when(promise, noop, noop);
-        })), function () {
+        return Q.all(array_map(promises, function (promise) {
+            return Q(promise).then(noop, noop);
+        })).then(function () {
             return promises;
         });
     });
@@ -998,7 +970,7 @@ QP_export("allResolved", function(promises) {
  */
 QP_export("allSettled", function () {
     return this.then(function (promises) {
-        return all(array_map(promises, function (promise) {
+        return Q.all(array_map(promises, function (promise) {
             promise = Q(promise);
             function regardless() {
                 return promise.inspect();
