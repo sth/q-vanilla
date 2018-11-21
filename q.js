@@ -978,9 +978,8 @@ QPromise.prototype.any = function () {
  * (or values)
  * @return a promise for an array of promises
  */
-Q.allResolved = deprecate(allResolved, "allResolved", "allSettled");
-function allResolved(promises) {
-    return when(promises, function (promises) {
+QP_export("allResolved", function(promises) {
+    return this.then(function (promises) {
         promises = array_map(promises, Q);
         return when(all(array_map(promises, function (promise) {
             return when(promise, noop, noop);
@@ -988,19 +987,7 @@ function allResolved(promises) {
             return promises;
         });
     });
-}
-
-QPromise.prototype.allResolved = function () {
-    return allResolved(this);
-};
-
-/**
- * @see Promise#allSettled
- */
-Q.allSettled = allSettled;
-function allSettled(promises) {
-    return Q(promises).allSettled();
-}
+});
 
 /**
  * Turns an array of promises into a promise for an array of their states (as
@@ -1009,7 +996,7 @@ function allSettled(promises) {
  * promises for values)
  * @returns {Array[State]} an array of states for the respective values.
  */
-QPromise.prototype.allSettled = function () {
+QP_export("allSettled", function () {
     return this.then(function (promises) {
         return all(array_map(promises, function (promise) {
             promise = Q(promise);
@@ -1019,7 +1006,7 @@ QPromise.prototype.allSettled = function () {
             return promise.then(regardless, regardless);
         }));
     });
-};
+});
 
 /**
  * Captures the failure of a promise, giving an oportunity to recover
@@ -1195,27 +1182,17 @@ QP_export("nfcall", function (/*...args*/) {
  * .then(console.log)
  * .done()
  */
-Q.nfbind =
-Q.denodeify = function (callback /*...args*/) {
-    if (callback === undefined) {
-        throw new Error("Q can't wrap an undefined function");
-    }
-    var baseArgs = array_slice(arguments, 1);
+QP_export(["nfbind", "denodeify"], function (/*...args*/) {
+	var callback = this
+    var baseArgs = array_slice(arguments);
     return function () {
         var nodeArgs = baseArgs.concat(array_slice(arguments));
         var deferred = defer();
         nodeArgs.push(deferred.makeNodeResolver());
-        Q(callback).fapply(nodeArgs).fail(deferred.reject);
+        callback.fapply(nodeArgs).fail(deferred.reject);
         return deferred.promise;
     };
-};
-
-QPromise.prototype.nfbind =
-QPromise.prototype.denodeify = function (/*...args*/) {
-    var args = array_slice(arguments);
-    args.unshift(this);
-    return Q.denodeify.apply(void 0, args);
-};
+});
 
 Q.nbind = function (callback, thisp /*...args*/) {
     var baseArgs = array_slice(arguments, 2);
@@ -1246,11 +1223,6 @@ QPromise.prototype.nbind = function (/*thisp, ...args*/) {
  * will be provided by Q and appended to these arguments.
  * @returns a promise for the value or error
  */
-Q.nmapply = // XXX As proposed by "Redsandro"
-Q.npost = function (object, name, args) {
-    return Q(object).npost(name, args);
-};
-
 QP_export(["nmapply", "npost"], function (name, args) {
     var nodeArgs = array_slice(args || []);
     var deferred = defer();
