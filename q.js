@@ -501,9 +501,8 @@ function isPromiseAlike(object) {
  * @returns whether the given object is a pending promise, meaning not
  * fulfilled or rejected.
  */
-Q.isPending = isPending;
-function isPending(object) {
-    return isPromise(object) && object.inspect().state === "pending";
+Q.isPending = function(object) {
+    return isPromise(object) && object.isPending();
 }
 
 QPromise.prototype.isPending = function () {
@@ -514,9 +513,8 @@ QPromise.prototype.isPending = function () {
  * @returns whether the given object is a value or fulfilled
  * promise.
  */
-Q.isFulfilled = isFulfilled;
-function isFulfilled(object) {
-    return !isPromise(object) || object.inspect().state === "fulfilled";
+Q.isFulfilled = function(object) {
+    return !isPromise(object) || object.isFulfilled();
 }
 
 QPromise.prototype.isFulfilled = function () {
@@ -526,9 +524,8 @@ QPromise.prototype.isFulfilled = function () {
 /**
  * @returns whether the given object is a rejected promise.
  */
-Q.isRejected = isRejected;
-function isRejected(object) {
-    return isPromise(object) && object.inspect().state === "rejected";
+Q.isRejected = function(object) {
+    return isPromise(object) && object.isRejected();
 }
 
 QPromise.prototype.isRejected = function () {
@@ -623,8 +620,7 @@ QP_export("spread", function (fulfilled, rejected) {
  *    the generator function altogether, and is translated into a
  *    rejection for the promise returned by the decorated generator.
  */
-Q.async = async;
-function async(makeGenerator) {
+Q.async = function(makeGenerator) {
     return function () {
         // when verb is "send", arg is a value
         // when verb is "throw", arg is an exception
@@ -671,7 +667,7 @@ function async(makeGenerator) {
         var errback = continuer.bind(continuer, "throw");
         return callback();
     };
-}
+};
 
 /**
  * The spawn function is a small wrapper around async that immediately
@@ -680,10 +676,9 @@ function async(makeGenerator) {
  * handler. This is useful because it's extremely common to run
  * generators at the top-level to work with libraries.
  */
-Q.spawn = spawn;
-function spawn(makeGenerator) {
+Q.spawn = function(makeGenerator) {
     Q.done(Q.async(makeGenerator)());
-}
+};
 
 // FIXME: Remove this interface once ES6 generators are in SpiderMonkey.
 /**
@@ -710,10 +705,9 @@ function spawn(makeGenerator) {
  *      Q.return(foo + bar);
  * })
  */
-Q["return"] = _return;
-function _return(value) {
+Q["return"] = function(value) {
     throw new QReturnValue(value);
-}
+};
 
 /**
  * The promised function decorator ensures that any promise arguments
@@ -730,14 +724,13 @@ function _return(value) {
  * @param {function} callback The function to decorate
  * @returns {function} a function that has been decorated.
  */
-Q.promised = promised;
-function promised(callback) {
+Q.promised = function(callback) {
     return function () {
         return Q.spread([this, Q.all(arguments)], function (self, args) {
             return callback.apply(self, args);
         });
     };
-}
+};
 
 /**
  * sends a message to a value in a future turn
