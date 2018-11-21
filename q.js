@@ -96,6 +96,26 @@ function notImplemented(obj, name) {
 	};
 }
 
+
+function Q_export(name) {
+	Q[name] = function(object) {
+		var p = Q(object);
+		return p[name].apply(p, array_slice(arguments, 1));
+	}
+}
+
+function QP_export(names, fun) {
+	function setf(name) {
+		QPromise.prototype[name] = fun;
+		Q_export(name, fun);
+	}
+	if (typeof names === "string")
+		setf(names);
+	else
+		names.forEach(setf);
+}
+
+
 // Attempt to make generics safe in the face of downstream
 // modifications.
 // There is no situation where this is necessary.
@@ -324,11 +344,7 @@ QPromise.prototype.passByCopy = function () {
  * otherwise.
  *
  */
-Q.join = function (x, y) {
-    return Q(x).join(y);
-};
-
-QPromise.prototype.join = function (that) {
+QP_export("join", function (that) {
     return Q([this, that]).spread(function (x, y) {
         if (x === y) {
             // TODO: "===" should be Object.is or equiv
@@ -337,7 +353,7 @@ QPromise.prototype.join = function (that) {
             throw new Error("Q can't join: not the same: " + x + " " + y);
         }
     });
-};
+});
 
 /**
  * Returns a promise for the first of an array of promises to become settled.
@@ -412,10 +428,6 @@ QPromise.prototype.then = function (fulfilled, rejected) {
 	return fromNative(this._native.then(fulfilled, rejected));
 };
 
-Q.tap = function (promise, callback) {
-    return Q(promise).tap(callback);
-};
-
 /**
  * Works almost like "finally", but not called for rejections.
  * Original resolution value is passed through callback unaffected.
@@ -428,13 +440,13 @@ Q.tap = function (promise, callback) {
  *   .tap(console.log)
  *   .then(...);
  */
-QPromise.prototype.tap = function (callback) {
+QP_export("tap", function (callback) {
     callback = Q(callback);
 
     return this.then(function (value) {
         return callback.fcall(value).thenResolve(value);
     });
-};
+});
 
 /**
  * Registers an observer on a promise.
@@ -603,16 +615,11 @@ notImplemented(Q, "master");
  * @returns a promise for the return value or thrown exception of
  * either callback.
  */
-Q.spread = spread;
-function spread(value, fulfilled, rejected) {
-    return Q(value).spread(fulfilled, rejected);
-}
-
-QPromise.prototype.spread = function (fulfilled, rejected) {
+QP_export("spread", function (fulfilled, rejected) {
     return this.all().then(function (array) {
         return fulfilled.apply(void 0, array);
     }, rejected);
-};
+});
 
 /**
  * The async function is a decorator for generator functions, turning
@@ -750,7 +757,7 @@ function _return(value) {
 Q.promised = promised;
 function promised(callback) {
     return function () {
-        return spread([this, all(arguments)], function (self, args) {
+        return Q.spread([this, all(arguments)], function (self, args) {
             return callback.apply(self, args);
         });
     };
@@ -772,15 +779,11 @@ notImplemented(QPromise.prototype, "dispatch");
  * @param name      name of property to get
  * @return promise for the property value
  */
-Q.get = function (object, key) {
-    return Q(object).get(key);
-};
-
-QPromise.prototype.get = function (key) {
+QP_export("get", function (key) {
     return this.then(function (value) {
         return value[key];
     });
-};
+});
 
 /**
  * Sets the value of a property in a future turn.
@@ -789,15 +792,11 @@ QPromise.prototype.get = function (key) {
  * @param value     new value of property
  * @return promise for the return value
  */
-Q.set = function (object, key, value) {
-    return Q(object).set(key, value);
-};
-
-QPromise.prototype.set = function (key, rhs) {
+QP_export("set", function (key, rhs) {
     return this.then(function (value) {
         value[key] = rhs;
     });
-};
+});
 
 /**
  * Deletes a property in a future turn.
@@ -805,17 +804,11 @@ QPromise.prototype.set = function (key, rhs) {
  * @param name      name of property to delete
  * @return promise for the return value
  */
-Q.del = // XXX legacy
-Q["delete"] = function (object, key) {
-    return Q(object).del(key);
-};
-
-QPromise.prototype.del = // XXX legacy
-QPromise.prototype["delete"] = function (key) {
+QP_export(["del", "delete"], function (key) {
     return this.then(function (value) {
         delete value[key];
     });
-};
+});
 
 /**
  * Invokes a method in a future turn.
@@ -830,13 +823,7 @@ QPromise.prototype["delete"] = function (key) {
  * @return promise for the return value
  */
 // bound locally because it is used by other methods
-Q.mapply = // XXX As proposed by "Redsandro"
-Q.post = function (object, name, args) {
-    return Q(object).post(name, args);
-};
-
-QPromise.prototype.mapply = // XXX As proposed by "Redsandro"
-QPromise.prototype.post = function (name, args) {
+QP_export(["mapply", "post"], function (name, args) {
     return this.then(function (value) {
         // Mark Miller proposes that post with no name should apply a
         // promised function.
@@ -846,7 +833,7 @@ QPromise.prototype.post = function (name, args) {
             return value[name].apply(value, args);
         }
     });
-};
+});
 
 /**
  * Invokes a method in a future turn.
@@ -855,17 +842,9 @@ QPromise.prototype.post = function (name, args) {
  * @param ...args   array of invocation arguments
  * @return promise for the return value
  */
-Q.send = // XXX Mark Miller's proposed parlance
-Q.mcall = // XXX As proposed by "Redsandro"
-Q.invoke = function (object, name /*...args*/) {
-    return Q(object).post(name, array_slice(arguments, 2));
-};
-
-QPromise.prototype.send = // XXX Mark Miller's proposed parlance
-QPromise.prototype.mcall = // XXX As proposed by "Redsandro"
-QPromise.prototype.invoke = function (name /*...args*/) {
+QP_export(["send", "mcall", "invoke"], function (name /*...args*/) {
     return this.post(name, array_slice(arguments, 1));
-};
+});
 
 QPromise.prototype.apply = function (thisp, args) {
     return this.then(function (value) {
@@ -878,27 +857,18 @@ QPromise.prototype.apply = function (thisp, args) {
  * @param object    promise or immediate reference for target function
  * @param args      array of application arguments
  */
-Q.fapply = function (object, args) {
-    return Q(object).apply(void 0, args);
-};
-
-QPromise.prototype.fapply = function (args) {
+QP_export("fapply", function (args) {
     return this.apply(void 0, args);
-};
+});
 
 /**
  * Calls the promised function in a future turn.
  * @param object    promise or immediate reference for target function
  * @param ...args   array of application arguments
  */
-Q["try"] =
-Q.fcall = function (object /* ...args*/) {
-    return Q(object).apply(void 0, array_slice(arguments, 1));
-};
-
-QPromise.prototype.fcall = function (/*...args*/) {
+QP_export(["try", "fcall"], function (/*...args*/) {
     return this.apply(void 0, array_slice(arguments));
-};
+});
 
 /**
  * Binds the promised function, transforming return values into a fulfilled
@@ -906,17 +876,7 @@ QPromise.prototype.fcall = function (/*...args*/) {
  * @param object    promise or immediate reference for target function
  * @param ...args   array of application arguments
  */
-Q.fbind = function (object /*...args*/) {
-    var promise = Q(object);
-    var args = array_slice(arguments, 1);
-    return function fbound() {
-        return promise.apply(
-            this,
-            args.concat(array_slice(arguments))
-        );
-    };
-};
-QPromise.prototype.fbind = function (/*...args*/) {
+QP_export("fbind", function (/*...args*/) {
     var promise = this;
     var args = array_slice(arguments);
     return function fbound() {
@@ -925,7 +885,7 @@ QPromise.prototype.fbind = function (/*...args*/) {
             args.concat(array_slice(arguments))
         );
     };
-};
+});
 
 /**
  * Requests the names of the owned properties of a promised
@@ -933,15 +893,11 @@ QPromise.prototype.fbind = function (/*...args*/) {
  * @param object    promise or immediate reference for target object
  * @return promise for the keys of the eventually settled object
  */
-Q.keys = function (object) {
-    return Q(object).keys();
-};
-
-QPromise.prototype.keys = function () {
+QP_export("keys", function () {
     return this.then(function (value) {
         return Object.keys(value);
     });
-};
+});
 
 /**
  * Turns an array of promises into a promise for an array.  If any of
@@ -1074,15 +1030,9 @@ QPromise.prototype.allSettled = function () {
  * given promise is rejected
  * @returns a promise for the return value of the callback
  */
-Q.fail = // XXX legacy
-Q["catch"] = function (object, rejected) {
-    return Q(object).then(void 0, rejected);
-};
-
-QPromise.prototype.fail = // XXX legacy
-QPromise.prototype["catch"] = function (rejected) {
+QP_export(["fail", "catch"], function (rejected) {
     return this.then(void 0, rejected);
-};
+});
 
 /**
  * Attaches a listener that can respond to progress notifications from a
@@ -1106,13 +1056,7 @@ notImplemented(QPromise.prototype, "progress");
  * @returns a promise for the resolution of the given promise when
  * ``fin`` is done.
  */
-Q.fin = // XXX legacy
-Q["finally"] = function (object, callback) {
-    return Q(object)["finally"](callback);
-};
-
-QPromise.prototype.fin = // XXX legacy
-QPromise.prototype["finally"] = function (callback) {
+QP_export(["fin", "finally"], function (callback) {
     if (!callback || typeof callback.apply !== "function") {
         throw new Error("Q can't apply finally callback");
     }
@@ -1127,7 +1071,7 @@ QPromise.prototype["finally"] = function (callback) {
             throw reason;
         });
     });
-};
+});
 
 /**
  * Terminates a chain of promises, forcing rejections to be
@@ -1135,11 +1079,7 @@ QPromise.prototype["finally"] = function (callback) {
  * @param {Any*} promise at the end of a chain of promises
  * @returns nothing
  */
-Q.done = function (object, fulfilled, rejected) {
-    return Q(object).done(fulfilled, rejected);
-};
-
-QPromise.prototype.done = function (fulfilled, rejected) {
+QP_export("done", function (fulfilled, rejected) {
     var onUnhandledError = function (error) {
 		if (Q.onerror) {
 			Q.onerror(error);
@@ -1154,7 +1094,7 @@ QPromise.prototype.done = function (fulfilled, rejected) {
         this;
 
     promise._native.then(void 0, onUnhandledError);
-};
+});
 
 /**
  * Causes a promise to be rejected if it does not get fulfilled before
@@ -1165,11 +1105,7 @@ QPromise.prototype.done = function (fulfilled, rejected) {
  * @returns a promise for the resolution of the given promise if it is
  * fulfilled before the timeout, otherwise rejected.
  */
-Q.timeout = function (object, ms, error) {
-    return Q(object).timeout(ms, error);
-};
-
-QPromise.prototype.timeout = function (ms, error) {
+QP_export("timeout", function (ms, error) {
     var deferred = defer();
     var timeoutId = setTimeout(function () {
         if (!error || "string" === typeof error) {
@@ -1188,7 +1124,7 @@ QPromise.prototype.timeout = function (ms, error) {
     });
 
     return deferred.promise;
-};
+});
 
 /**
  * Returns a promise for the given value (or promised value), some
@@ -1226,17 +1162,13 @@ QPromise.prototype.delay = function (timeout) {
  *      })
  *
  */
-Q.nfapply = function (callback, args) {
-    return Q(callback).nfapply(args);
-};
-
-QPromise.prototype.nfapply = function (args) {
+QP_export("nfapply", function (args) {
     var deferred = defer();
     var nodeArgs = array_slice(args);
     nodeArgs.push(deferred.makeNodeResolver());
     this.fapply(nodeArgs).fail(deferred.reject);
     return deferred.promise;
-};
+});
 
 /**
  * Passes a continuation to a Node function, which is called with the given
@@ -1247,18 +1179,13 @@ QPromise.prototype.nfapply = function (args) {
  * })
  *
  */
-Q.nfcall = function (callback /*...args*/) {
-    var args = array_slice(arguments, 1);
-    return Q(callback).nfapply(args);
-};
-
-QPromise.prototype.nfcall = function (/*...args*/) {
+QP_export("nfcall", function (/*...args*/) {
     var nodeArgs = array_slice(arguments);
     var deferred = defer();
     nodeArgs.push(deferred.makeNodeResolver());
     this.fapply(nodeArgs).fail(deferred.reject);
     return deferred.promise;
-};
+});
 
 /**
  * Wraps a NodeJS continuation passing function and returns an equivalent
@@ -1324,14 +1251,13 @@ Q.npost = function (object, name, args) {
     return Q(object).npost(name, args);
 };
 
-QPromise.prototype.nmapply = // XXX As proposed by "Redsandro"
-QPromise.prototype.npost = function (name, args) {
+QP_export(["nmapply", "npost"], function (name, args) {
     var nodeArgs = array_slice(args || []);
     var deferred = defer();
     nodeArgs.push(deferred.makeNodeResolver());
     this.post(name, nodeArgs).fail(deferred.reject);
     return deferred.promise;
-};
+});
 
 /**
  * Calls a method of a Node-style object that accepts a Node-style
@@ -1343,25 +1269,13 @@ QPromise.prototype.npost = function (name, args) {
  * be provided by Q and appended to these arguments.
  * @returns a promise for the value or error
  */
-Q.nsend = // XXX Based on Mark Miller's proposed "send"
-Q.nmcall = // XXX Based on "Redsandro's" proposal
-Q.ninvoke = function (object, name /*...args*/) {
-    var nodeArgs = array_slice(arguments, 2);
-    var deferred = defer();
-    nodeArgs.push(deferred.makeNodeResolver());
-    Q(object).post(name, nodeArgs).fail(deferred.reject);
-    return deferred.promise;
-};
-
-QPromise.prototype.nsend = // XXX Based on Mark Miller's proposed "send"
-QPromise.prototype.nmcall = // XXX Based on "Redsandro's" proposal
-QPromise.prototype.ninvoke = function (name /*...args*/) {
+QP_export(["nsend", "nmcall", "ninvoke"], function (name /*...args*/) {
     var nodeArgs = array_slice(arguments, 1);
     var deferred = defer();
     nodeArgs.push(deferred.makeNodeResolver());
     this.post(name, nodeArgs).fail(deferred.reject);
     return deferred.promise;
-};
+});
 
 /**
  * If a function would like to support both Node continuation-passing-style and
@@ -1373,12 +1287,7 @@ QPromise.prototype.ninvoke = function (name /*...args*/) {
  * @param {Function} nodeback a Node.js-style callback
  * @returns either the promise or nothing
  */
-Q.nodeify = nodeify;
-function nodeify(object, nodeback) {
-    return Q(object).nodeify(nodeback);
-}
-
-QPromise.prototype.nodeify = function (nodeback) {
+QP_export("nodeify", function (nodeback) {
     if (nodeback) {
         this.done(function (value) {
 			nodeback(null, value);
@@ -1388,7 +1297,7 @@ QPromise.prototype.nodeify = function (nodeback) {
     } else {
         return this;
     }
-};
+});
 
 Q.noConflict = function() {
     throw new Error("Q.noConflict only works when Q is used as a global");
