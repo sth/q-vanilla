@@ -8,6 +8,9 @@ if (typeof Q === "undefined" && typeof require !== "undefined") {
     // For Node compatibility.
     global.Q = require("../q");
     require("./lib/jasmine-promise");
+
+	// The tests are not made to handle all rejections
+	Q.stopUnhandledRejectionTracking();
 }
 
 var REASON = "this is not an error, but it might show up in the console";

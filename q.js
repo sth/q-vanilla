@@ -377,7 +377,7 @@ function QPromise(nativePromise, inspect) {
     if (inspect === void 0) {
         inspect = { state: "unknown" };
 	}
-	this._native = nativePromise;
+	this._native = nativePromise.then();
 	this._inspect = inspect;
 
 	var that = this;
@@ -389,8 +389,15 @@ function QPromise(nativePromise, inspect) {
 		that._inspect.reason = reason;
 	});
 
-	// Avoid unhandled exception errors by default
-	nativePromise.then(void 0, function(){});
+	// If trackUnhandledRejections is false, we always add an error handler
+	// to the native promise to avoid the host system to complain about
+	// unhandled rejections.
+	//
+	// If trackUnhandledRejections is true we don't do this and let the
+	// host system keep track of unhandled exceptions.
+	if (!trackUnhandledRejections) {
+		this._native.then(void 0, function(){});
+	}
 }
 
 QPromise.prototype.inspect = function () {
@@ -523,9 +530,13 @@ QPromise.prototype.isRejected = function () {
     return this.inspect().state === "rejected";
 };
 
+var trackUnhandledRejections = true;
+
 notImplemented(Q, "resetUnhandledRejections");
 notImplemented(Q, "getUnhandledReasons");
-notImplemented(Q, "stopUnhandledRejectionTracking");
+Q.stopUnhandledRejectionTracking = function() {
+	trackUnhandledRejections = false;
+}
 
 /**
  * Constructs a rejected promise.
