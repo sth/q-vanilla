@@ -96,18 +96,13 @@ function notImplemented(obj, name) {
 	};
 }
 
-
-function Q_export(name) {
-	Q[name] = function(object) {
-		var p = Q(object);
-		return p[name].apply(p, array_slice(arguments, 1));
-	};
-}
-
 function QP_export(names, fun) {
 	function setf(name) {
 		QPromise.prototype[name] = fun;
-		Q_export(name, fun);
+		Q[name] = function(object) {
+			var p = Q(object);
+			return p[name].apply(p, array_slice(arguments, 1));
+		};
 	}
 	if (typeof names === "string") {
 		setf(names);
