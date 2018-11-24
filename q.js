@@ -395,6 +395,8 @@ function QPromise(nativePromise, inspect) {
 	}
 }
 
+Q.QPromise = QPromise;
+
 QPromise.prototype.inspect = function () {
 	return this._inspect;
 };
