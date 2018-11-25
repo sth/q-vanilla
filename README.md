@@ -9,7 +9,7 @@ library to extend native Promises with many useful functions.
 
 ## API Documentation
 
-See [kriskowal/q][Q] for tbhe API reference
+See [kriskowal/q][Q] for the API reference
 
 ## Limitations
 
