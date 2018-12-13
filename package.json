@@ -22,7 +22,7 @@
     "Domenic Denicola <domenic@domenicdenicola.com> (http://domenicdenicola.com)"
   ],
   "license": "MIT",
-  "main": "q.js",
+  "main": "src/q.js",
   "files": [
     "LICENSE",
     "q.js",
@@ -37,6 +37,9 @@
   },
   "dependencies": {},
   "devDependencies": {
+    "@babel/cli": "^7.2.0",
+    "@babel/core": "^7.2.0",
+    "@babel/preset-env": "^7.2.0",
     "cover": "*",
     "grunt": "~0.4.1",
     "grunt-cli": "~0.1.9",
@@ -48,10 +51,11 @@
     "promises-aplus-tests": "1.x"
   },
   "scripts": {
-    "test": "jasmine-node spec && promises-aplus-tests spec/aplus-adapter && yarn run -s lint",
+    "test": "yarn build && jasmine-node spec && promises-aplus-tests spec/aplus-adapter && yarn run -s lint",
     "test-browser": "opener spec/q-spec.html",
+    "build": "babel --out-dir lib src",
     "benchmark": "matcha",
-    "lint": "jshint q.js",
+    "lint": "jshint src/q.js",
     "cover": "cover run jasmine-node spec && cover report html && opener cover_html/index.html",
     "minify": "grunt",
     "prepublish": "grunt"

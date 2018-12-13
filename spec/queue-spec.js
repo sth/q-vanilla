@@ -1,5 +1,5 @@
 
-var Q = require("../q");
+var Q = require("../lib/q");
 var Queue = require("../queue");
 
 global.Q = Q;
