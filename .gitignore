@@ -4,6 +4,7 @@ CHANGES.html
 README.html
 .tmp
 q.min.js
+lib/
 
 coverage/
 
