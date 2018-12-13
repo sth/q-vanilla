@@ -197,13 +197,6 @@ describe("always next tick", function () {
         turn++;
         return promise;
     });
-
-	it("allows overriding global nextTick", function () {
-		var spy = jasmine.createSpy();
-		Q.when(Q(), spy);
-
-		expect(spy).toHaveBeenCalled();
-	});
 });
 
 describe("promises for objects", function () {
