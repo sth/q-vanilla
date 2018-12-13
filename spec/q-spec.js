@@ -6,7 +6,7 @@
 
 if (typeof Q === "undefined" && typeof require !== "undefined") {
     // For Node compatibility.
-    global.Q = require("../lib/q");
+    global.Q = require("../lib/q").default;
     require("./lib/jasmine-promise");
 
 	// The tests are not made to handle all rejections
