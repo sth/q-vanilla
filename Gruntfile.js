@@ -5,7 +5,7 @@ module.exports = function (grunt) {
 
     grunt.initConfig({
         uglify: {
-            "q.min.js": ["q.js"],
+            "q.min.js": ["lib/q.js"],
             options: {
                 report: "gzip"
             }

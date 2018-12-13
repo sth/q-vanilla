@@ -56,7 +56,7 @@
     "benchmark": "matcha",
     "lint": "jshint src/q.js",
     "cover": "cover run jasmine-node spec && cover report html && opener cover_html/index.html",
-    "minify": "grunt",
+    "minify": "yarn build && grunt",
     "prepublish": "grunt"
   },
   "directories": {
