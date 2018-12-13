@@ -369,14 +369,17 @@ function fromNative(p) {
 }
 
 function toNativeReturn(fun) {
-	if (fun === undefined)
+	if (fun === undefined) {
 		return undefined;
+	}
 	return function() {
 		var ret = fun.apply(this, arguments);
-		if (ret instanceof QPromise)
+		if (ret instanceof QPromise) {
 			return ret._native;
-		else
+		}
+		else {
 			return ret;
+		}
 	};
 }
 
@@ -545,7 +548,7 @@ notImplemented(Q, "resetUnhandledRejections");
 notImplemented(Q, "getUnhandledReasons");
 Q.stopUnhandledRejectionTracking = function() {
 	trackUnhandledRejections = false;
-}
+};
 
 /**
  * Constructs a rejected promise.
