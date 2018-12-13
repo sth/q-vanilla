@@ -1,9 +1,7 @@
 {
-  "name": "q",
-  "version": "1.5.1",
-  "description": "A library for promises (CommonJS/Promises/A,B,D)",
-  "homepage": "https://github.com/kriskowal/q",
-  "author": "Kris Kowal <kris@cixar.com> (https://github.com/kriskowal)",
+  "name": "q-vanilla",
+  "version": "0.9.0",
+  "description": "A implementation of the Q API based on native (or polyfilled) Promises",
   "keywords": [
     "q",
     "promise",
@@ -23,10 +21,6 @@
     "Irakli Gozalishvili <rfobic@gmail.com> (http://jeditoolkit.com)",
     "Domenic Denicola <domenic@domenicdenicola.com> (http://domenicdenicola.com)"
   ],
-  "bugs": {
-    "mail": "kris@cixar.com",
-    "url": "http://github.com/kriskowal/q/issues"
-  },
   "license": "MIT",
   "main": "q.js",
   "files": [
@@ -39,8 +33,7 @@
     "url": "git://github.com/kriskowal/q.git"
   },
   "engines": {
-    "node": ">=0.6.0",
-    "teleport": ">=0.2.0"
+    "node": ">=0.12.0"
   },
   "dependencies": {},
   "devDependencies": {
@@ -55,20 +48,13 @@
     "promises-aplus-tests": "1.x"
   },
   "scripts": {
-    "test": "npm ls -s && jasmine-node spec && promises-aplus-tests spec/aplus-adapter && npm run -s lint",
+    "test": "jasmine-node spec && promises-aplus-tests spec/aplus-adapter && yarn run -s lint",
     "test-browser": "opener spec/q-spec.html",
     "benchmark": "matcha",
     "lint": "jshint q.js",
     "cover": "cover run jasmine-node spec && cover report html && opener cover_html/index.html",
     "minify": "grunt",
     "prepublish": "grunt"
-  },
-  "overlay": {
-    "teleport": {
-      "dependencies": {
-        "system": ">=0.0.4"
-      }
-    }
   },
   "directories": {
     "test": "./spec"
