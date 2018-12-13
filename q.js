@@ -368,6 +368,18 @@ function fromNative(p) {
     return new QPromise(p, { state: "pending" });
 }
 
+function toNativeReturn(fun) {
+	if (fun === undefined)
+		return undefined;
+	return function() {
+		var ret = fun.apply(this, arguments);
+		if (ret instanceof QPromise)
+			return ret._native;
+		else
+			return ret;
+	};
+}
+
 function QPromise(nativePromise, inspect) {
     if (inspect === void 0) {
         inspect = { state: "unknown" };
@@ -406,7 +418,7 @@ QPromise.prototype.toString = function () {
 };
 
 QPromise.prototype.then = function (fulfilled, rejected) {
-	return fromNative(this._native.then(fulfilled, rejected));
+	return fromNative(this._native.then(toNativeReturn(fulfilled), toNativeReturn(rejected)));
 };
 
 /**
@@ -982,7 +994,7 @@ QP_export("allSettled", function () {
  * @returns a promise for the return value of the callback
  */
 QP_export(["fail", "catch"], function (rejected) {
-    return this.then(void 0, rejected);
+	return fromNative(this._native.catch(toNativeReturn(rejected)));
 });
 
 /**
@@ -1008,6 +1020,10 @@ notImplemented(QPromise.prototype, "progress");
  * ``fin`` is done.
  */
 QP_export(["fin", "finally"], function (callback) {
+	if (this._native.finally && typeof callback === "function") {
+		return fromNative(this._native.finally(toNativeReturn(callback)));
+	}
+
     if (!callback || typeof callback.apply !== "function") {
         throw new Error("Q can't apply finally callback");
     }
