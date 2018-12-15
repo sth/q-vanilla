@@ -2070,7 +2070,7 @@ if (typeof require === "function") {
     if (domain) {
         var EventEmitter = require("events").EventEmitter;
 
-        describe("node domain support", function () {
+        xdescribe("node domain support", function () {
             var d;
 
             beforeEach(function () {
