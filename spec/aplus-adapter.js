@@ -1,6 +1,7 @@
 "use strict";
 
-var Q = require("../q");
+var Q = require("../lib/q").default;
+Q.stopUnhandledRejectionTracking();
 
 exports.fulfilled = Q.resolve;
 exports.rejected = Q.reject;
@@ -9,7 +10,7 @@ exports.pending = function () {
 
     return {
         promise: deferred.promise,
-        fulfill: deferred.resolve,
-        reject: deferred.reject
+        fulfill: deferred.resolve.bind(deferred),
+        reject: deferred.reject.bind(deferred)
     };
 };
