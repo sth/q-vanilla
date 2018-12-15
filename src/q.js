@@ -316,7 +316,7 @@ function fromNative(p) {
 }
 
 function toNativeReturn(fun) {
-	if (fun === undefined) {
+	if (!(fun instanceof Function)) {
 		return undefined;
 	}
 	return function() {
