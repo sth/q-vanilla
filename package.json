@@ -40,11 +40,11 @@
     "@babel/core": "^7.2.0",
     "@babel/preset-env": "^7.2.0",
     "cover": "*",
+    "eslint": "^5.10.0",
     "grunt": "~0.4.1",
     "grunt-cli": "~0.1.9",
     "grunt-contrib-uglify": "~0.9.1",
     "jasmine-node": "1.11.0",
-    "jshint": "~2.1.9",
     "matcha": "~0.2.0",
     "opener": "*",
     "promises-aplus-tests": "1.x"
@@ -54,7 +54,7 @@
     "test-browser": "opener spec/q-spec.html",
     "build": "babel --out-dir lib src",
     "benchmark": "matcha",
-    "lint": "jshint src/q.js",
+    "lint": "eslint src/",
     "cover": "cover run jasmine-node spec && cover report html && opener cover_html/index.html",
     "minify": "yarn build && grunt",
     "prepublish": "grunt"

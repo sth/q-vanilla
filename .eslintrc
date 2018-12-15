@@ -1,0 +1,28 @@
+{
+	 "parserOptions": {
+        "ecmaVersion": 6,
+        "sourceType": "module"
+    },
+    "rules": {
+        "curly": "warn",
+        "eqeqeq": "warn",
+        "no-new": "warn",
+        "quotmark": "double",
+        "strict": "warn"
+    },
+    "env": {
+        "browser": true,
+        "node": true
+    },
+    "globals": {
+        "self": false,
+        "bootstrap": false,
+        "cajaVM": false,
+        "define": false,
+        "ReturnValue": false,
+        "ses": false,
+        "setImmediate": false,
+        "Q": true,
+        "Promise": true
+    }
+}
