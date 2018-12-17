@@ -112,6 +112,35 @@ if (typeof ReturnValue !== "undefined") {
 // end of shims
 // beginning of real work
 
+class QPromise {
+	constructor(nativePromise, inspect) {
+		if (inspect === void 0) {
+			inspect = { state: "unknown" };
+		}
+		this._native = nativePromise.then();
+		this._inspect = inspect;
+
+		var that = this;
+		nativePromise.then(function (value) {
+			that._inspect.state = "fulfilled";
+			that._inspect.value = value;
+		}, function (reason) {
+			that._inspect.state = "rejected";
+			that._inspect.reason = reason;
+		});
+
+		// If trackUnhandledRejections is false, we always add an error handler
+		// to the native promise to avoid the host system to complain about
+		// unhandled rejections.
+		//
+		// If trackUnhandledRejections is true we don't do this and let the
+		// host system keep track of unhandled exceptions.
+		if (!trackUnhandledRejections) {
+			this._native.then(void 0, function(){});
+		}
+	}
+}
+
 /**
  * Constructs a promise for an immediate reference, passes promises through, or
  * coerces promises from different systems.
@@ -144,31 +173,23 @@ Q.resolve = Q;
  */
 notImplemented(Q, "nextTick");
 
-/**
- * Constructs a {promise, resolve, reject} object.
- *
- * `resolve` is a callback to invoke with a more resolved value for the
- * promise. To fulfill the promise, invoke `resolve` with any value that is
- * not a thenable. To reject the promise, invoke `resolve` with a rejected
- * thenable, or invoke `reject` with the reason directly. To resolve the
- * promise to another thenable, thus putting it in the same state, invoke
- * `resolve` with that other thenable.
- */
-Q.defer = defer;
-function defer() {
-	return new Deferred();
-}
+class Deferred {
+	constructor() {
+		var native_resolve, native_reject;
+		var native_promise = new Promise(function (resolve, reject) {
+			native_resolve = resolve;
+			native_reject = reject;
+		});
+		var promise = new QPromise(native_promise, { state: "pending" });
 
-function Deferred() {
-	var native_resolve, native_reject;
-	var native_promise = new Promise(function (resolve, reject) {
-		native_resolve = resolve;
-		native_reject = reject;
-	});
-    var promise = new QPromise(native_promise, { state: "pending" });
+		this.promise = promise;
 
-    this.promise = promise;
-    this.resolve = function (value) {
+		this.resolve = this.resolve.bind(this);
+		this.fulfill = this.fulfill.bind(this);
+		this.reject = this.reject.bind(this);
+	}
+
+	resolve(value) {
 		if (value instanceof QPromise) {
 			if (promise._inspect.state !== "fulfilled" && promise._inspect.state !== "rejected") {
 				if (value._inspect.state === "fulfilled") {
@@ -191,22 +212,40 @@ function Deferred() {
 			}
 			native_resolve(value);
 		}
-    };
+	}
 
-    this.fulfill = function (value) {
+	fulfill(value) {
 		if (isPromiseAlike(value)) {
 			throw notImplementedError("fulfill(thenable)");
 		}
 		promise._inspect.state = "fulfilled";
 		promise._inspect.value = value;
 		native_resolve(value);
-    };
-    this.reject = function (reason) {
+	}
+
+	reject(reason) {
 		promise._inspect.state = "rejected";
 		promise._inspect.reason = reason;
 		native_reject(reason);
-    };
-    notImplemented(this, "notify");
+	}
+}
+
+notImplemented(Deferred.prototype, "notify");
+
+
+/**
+ * Constructs a {promise, resolve, reject} object.
+ *
+ * `resolve` is a callback to invoke with a more resolved value for the
+ * promise. To fulfill the promise, invoke `resolve` with any value that is
+ * not a thenable. To reject the promise, invoke `resolve` with a rejected
+ * thenable, or invoke `reject` with the reason directly. To resolve the
+ * promise to another thenable, thus putting it in the same state, invoke
+ * `resolve` with that other thenable.
+ */
+Q.defer = defer;
+function defer() {
+	return new Deferred();
 }
 
 /**
@@ -328,33 +367,6 @@ function toNativeReturn(fun) {
 			return ret;
 		}
 	};
-}
-
-function QPromise(nativePromise, inspect) {
-    if (inspect === void 0) {
-        inspect = { state: "unknown" };
-	}
-	this._native = nativePromise.then();
-	this._inspect = inspect;
-
-	var that = this;
-	nativePromise.then(function (value) {
-		that._inspect.state = "fulfilled";
-		that._inspect.value = value;
-	}, function (reason) {
-		that._inspect.state = "rejected";
-		that._inspect.reason = reason;
-	});
-
-	// If trackUnhandledRejections is false, we always add an error handler
-	// to the native promise to avoid the host system to complain about
-	// unhandled rejections.
-	//
-	// If trackUnhandledRejections is true we don't do this and let the
-	// host system keep track of unhandled exceptions.
-	if (!trackUnhandledRejections) {
-		this._native.then(void 0, function(){});
-	}
 }
 
 Q.QPromise = QPromise;
