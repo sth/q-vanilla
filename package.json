@@ -1,6 +1,6 @@
 {
   "name": "q-vanilla",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "A implementation of the Q API based on native (or polyfilled) Promises",
   "keywords": [
     "q",
