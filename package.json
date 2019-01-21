@@ -1,6 +1,6 @@
 {
   "name": "q-vanilla",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "A implementation of the Q API based on native (or polyfilled) Promises",
   "keywords": [
     "q",
@@ -22,10 +22,11 @@
     "Domenic Denicola <domenic@domenicdenicola.com> (http://domenicdenicola.com)"
   ],
   "license": "MIT",
-  "main": "src/q.js",
+  "main": "lib/q.js",
   "files": [
     "LICENSE",
-    "q.js"
+    "lib/q.js",
+    "src/q.js"
   ],
   "repository": {
     "type": "git",
@@ -56,8 +57,8 @@
     "benchmark": "matcha",
     "lint": "eslint src/",
     "cover": "cover run jasmine-node spec && cover report html && opener cover_html/index.html",
-    "minify": "yarn build && grunt",
-    "prepublish": "grunt"
+    "minify": "yarn build && yarn grunt",
+    "prepublish": "yarn minify"
   },
   "directories": {
     "test": "./spec"
