@@ -29,7 +29,7 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git://github.com/kriskowal/q.git"
+    "url": "git://github.com/sth/q-vanilla.git"
   },
   "engines": {
     "node": ">=0.12.0"
