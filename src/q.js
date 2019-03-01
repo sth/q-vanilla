@@ -175,10 +175,10 @@ notImplemented(Q, "nextTick");
 
 class Deferred {
 	constructor() {
-		var native_resolve, native_reject;
+		var that = this;
 		var native_promise = new Promise(function (resolve, reject) {
-			native_resolve = resolve;
-			native_reject = reject;
+			that.native_resolve = resolve;
+			that.native_reject = reject;
 		});
 		var promise = new QPromise(native_promise, { state: "pending" });
 
@@ -191,26 +191,26 @@ class Deferred {
 
 	resolve(value) {
 		if (value instanceof QPromise) {
-			if (promise._inspect.state !== "fulfilled" && promise._inspect.state !== "rejected") {
+			if (this.promise._inspect.state !== "fulfilled" && this.promise._inspect.state !== "rejected") {
 				if (value._inspect.state === "fulfilled") {
-					promise._inspect.state = "fulfilled";
-					promise._inspect.value = value._inspect.value;
+					this.promise._inspect.state = "fulfilled";
+					this.promise._inspect.value = value._inspect.value;
 				}
 				else if (value._inspect.state === "rejected") {
-					promise._inspect.state = "rejected";
-					promise._inspect.reason = value._inspect.reason;
+					this.promise._inspect.state = "rejected";
+					this.promise._inspect.reason = value._inspect.reason;
 				}
 			}
-			native_resolve(value._native);
+			this.native_resolve(value._native);
 		}
 		else {
 			if (!isPromiseAlike(value)) {
-				if (promise._inspect.state !== "fulfilled" && promise._inspect.state !== "rejected") {
-					promise._inspect.state = "fulfilled";
-					promise._inspect.value = value;
+				if (this.promise._inspect.state !== "fulfilled" && this.promise._inspect.state !== "rejected") {
+					this.promise._inspect.state = "fulfilled";
+					this.promise._inspect.value = value;
 				}
 			}
-			native_resolve(value);
+			this.native_resolve(value);
 		}
 	}
 
@@ -218,15 +218,15 @@ class Deferred {
 		if (isPromiseAlike(value)) {
 			throw notImplementedError("fulfill(thenable)");
 		}
-		promise._inspect.state = "fulfilled";
-		promise._inspect.value = value;
-		native_resolve(value);
+		this.promise._inspect.state = "fulfilled";
+		this.promise._inspect.value = value;
+		this.native_resolve(value);
 	}
 
 	reject(reason) {
-		promise._inspect.state = "rejected";
-		promise._inspect.reason = reason;
-		native_reject(reason);
+		this.promise._inspect.state = "rejected";
+		this.promise._inspect.reason = reason;
+		this.native_reject(reason);
 	}
 }
 
