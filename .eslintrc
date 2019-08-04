@@ -7,7 +7,7 @@
         "curly": "warn",
         "eqeqeq": "warn",
         "no-new": "warn",
-        "quotmark": "double",
+        "quotes": ["warn", "double"],
         "strict": "warn"
     },
     "env": {
