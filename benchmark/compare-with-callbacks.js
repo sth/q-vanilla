@@ -1,6 +1,6 @@
 "use strict";
 
-var Q = require("../q");
+var Q = require("../lib/q").default;
 var fs = require("fs");
 
 suite("A single simple async operation", function () {

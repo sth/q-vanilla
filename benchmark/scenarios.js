@@ -1,6 +1,6 @@
 "use strict";
 
-var Q = require("../q");
+var Q = require("../lib/q").default;
 
 suite("Chaining", function () {
     var numberToChain = 1000;
