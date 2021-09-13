@@ -1,3 +1,11 @@
+# q-vanilla CHangelog
+
+## q-vanilla v2.0.0
+
+- **Breaking change:** Drop support for node <= v8
+- Upgrade dependencies
+
+# Original Q Changelog
 
 ## 1.5.1
 
