@@ -1,4 +1,9 @@
-# q-vanilla CHangelog
+# q-vanilla Changelog
+
+## q-vanilla v3.0.0
+
+- **Breaking change:** Drop support for node <= v10
+- Upgrade dependencies
 
 ## q-vanilla v2.0.0
 
